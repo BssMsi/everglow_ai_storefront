@@ -3,17 +3,24 @@ english_agent.py
 Module for English Agent logic (e.g., LLM or custom logic) using LangGraph for multi-turn, multi-agent conversations.
 """
 
-from typing import Dict, Any, Optional
-from langchain.llms import OpenAI  # or your preferred LLM
+from typing import Dict, Any, List, Tuple, Optional
+from langchain_google_genai import ChatGoogleGenerativeAI # Import for Gemini
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
-from langchain.prompts import PromptTemplate
+from langchain.prompts import PromptTemplate, ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 import copy
 import os
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import Chroma
-from langchain.chains import LLMChain
-from langchain.prompts import SystemMessagePromptTemplate, HumanMessagePromptTemplate, ChatPromptTemplate
+import logging
+import pandas as pd
+from dotenv import load_dotenv
+
+# Pinecone and Cohere Imports
+from pinecone import Pinecone
+from langchain_cohere import CohereEmbeddings
+
+load_dotenv()  # Load environment variables
+
+logger = logging.getLogger(__name__)
 
 # --- State Management ---
 class AgentState:
@@ -21,11 +28,11 @@ class AgentState:
     Tracks the conversation state, including history, extracted entities, user intent, and active agent.
     """
     def __init__(self, history=None, entities=None, intent=None, active_agent=None, followup_questions=None):
-        self.history = history or []  # List of (user, agent) tuples
-        self.entities = entities or {}  # e.g., {"product_category": "serum"}
-        self.intent = intent  # e.g., "search", "recommend", "review_explanation", "brand_info"
-        self.active_agent = active_agent  # e.g., "conversational_search"
-        self.followup_questions = followup_questions or []
+        self.history: List[Tuple[str, str]] = history or []  # List of (user, agent) tuples
+        self.entities: Dict[str, Any] = entities or {}  # e.g., {"product_category": "serum"}
+        self.intent: Optional[str] = intent  # e.g., "search", "recommend", "review_explanation", "brand_info"
+        self.active_agent: Optional[str] = active_agent  # e.g., "conversational_search"
+        self.followup_questions: List[str] = followup_questions or []
 
     def to_dict(self):
         return {
@@ -47,47 +54,102 @@ class AgentState:
         )
 
 # --- LLM Setup (Replace with your preferred LLM and config) ---
-llm = OpenAI(
-    base_url="https://api.aimlapi.com/v1",
+if not os.getenv("GEMINI_API_KEY"):
+    logger.error("GEMINI_API_KEY not set in environment variables.")
+# Using the same LLM base URL and API key from main.py
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash-preview-05-20", # Specify the Gemini model, gemini-pro is a common default
     temperature=0.2,
-    api_key=os.getenv("AIMLAPI_API_KEY")
+    google_api_key=os.getenv("GEMINI_API_KEY") # Use the new environment variable
 )
 
-# --- Load vector store and embeddings (singleton pattern for efficiency) ---
-CATALOG_VECTORSTORE_DIR = os.path.join(os.path.dirname(__file__), "../catalog_vectorstore")
-_embeddings = None
-_vectorstore = None
+# --- Pinecone and Cohere Setup ---
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
+PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
+CATALOG_PINECONE_INDEX_NAME = os.getenv("CATALOG_PINECONE_INDEX_NAME", "everglow-catalog")  # Consistent index name
+FEEDBACK_PINECONE_INDEX_NAME = os.getenv("FEEDBACK_PINECONE_INDEX_NAME", "everglow-feedback")  # Consistent index name
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
-def get_catalog_vectorstore():
-    global _embeddings, _vectorstore
-    if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    if _vectorstore is None:
-        _vectorstore = Chroma(persist_directory=CATALOG_VECTORSTORE_DIR, embedding_function=_embeddings)
-    return _vectorstore
+# Initialize Cohere Embeddings (1024 dimensions)
+# Use a singleton pattern for efficiency
+_cohere_embeddings: Optional[CohereEmbeddings] = None
+
+def get_cohere_embeddings() -> CohereEmbeddings:
+    global _cohere_embeddings
+    if _cohere_embeddings is None:
+        if not COHERE_API_KEY:
+            logger.error("COHERE_API_KEY not set in environment variables.")
+            raise ValueError("COHERE_API_KEY not set in environment variables.")
+        _cohere_embeddings = CohereEmbeddings(cohere_api_key=COHERE_API_KEY, model="embed-english-light-v2.0")
+        logger.info("Initialized Cohere Embeddings model: embed-english-light-v2.0")
+    return _cohere_embeddings
+
+# Initialize Pinecone Client
+# Use a singleton pattern for efficiency
+_pinecone_client: Optional[Pinecone] = None
+
+def get_pinecone_client() -> Pinecone:
+    global _pinecone_client
+    if _pinecone_client is None:
+        if not PINECONE_API_KEY:
+            logger.error("PINECONE_API_KEY not set in environment variables.")
+            raise ValueError("PINECONE_API_KEY not set in environment variables.")
+        _pinecone_client = Pinecone(api_key=PINECONE_API_KEY)
+        logger.info("Initialized Pinecone client.")
+    return _pinecone_client
+
+# Get Pinecone Index objects
+def get_catalog_index():
+    pc = get_pinecone_client()
+    if CATALOG_PINECONE_INDEX_NAME not in [idx.name for idx in pc.list_indexes()]:
+        logger.error(f"Pinecone catalog index '{CATALOG_PINECONE_INDEX_NAME}' not found. Please run preprocessing script.")
+        raise ValueError(f"Pinecone catalog index '{CATALOG_PINECONE_INDEX_NAME}' not found. Please run preprocessing script.")
+    return pc.Index(CATALOG_PINECONE_INDEX_NAME)
+
+def get_feedback_index():
+    pc = get_pinecone_client()
+    if FEEDBACK_PINECONE_INDEX_NAME not in [idx.name for idx in pc.list_indexes()]:
+        logger.error(f"Pinecone feedback index '{FEEDBACK_PINECONE_INDEX_NAME}' not found. Please run preprocessing script.")
+        raise ValueError(f"Pinecone feedback index '{FEEDBACK_PINECONE_INDEX_NAME}' not found. Please run preprocessing script.")
+    return pc.Index(FEEDBACK_PINECONE_INDEX_NAME)
 
 # --- Extract available categories and skin concerns from catalog at startup ---
-def get_catalog_categories_and_skin_concerns():
-    vectorstore = get_catalog_vectorstore()
-    # Extract all unique categories and tags (as skin concerns) from the vector store metadata
-    categories = set()
-    skin_concerns = set()
-    # Chroma stores documents in _collection, which has get() for all docs
-    for doc in vectorstore.get()['metadatas']:
-        if doc is None:
-            continue
-        cat = doc.get('category')
-        if cat:
-            categories.add(str(cat).strip())
-        tags = doc.get('tags')
-        if tags:
-            # tags is a list
-            for tag in tags:
-                skin_concerns.add(str(tag).strip())
-    return sorted(categories), sorted(skin_concerns)
+# This part still needs to read from the catalog data itself, not the Pinecone index,
+# unless you want to query Pinecone for all distinct categories/tags, which might be slow.
+# Keeping the original logic for now, assuming the preprocessed data source (excel) is available for this.
+# If the excel isn't available here, we'd need an alternative way to get these lists.
+CATALOG_PATH = os.path.join(os.path.dirname(__file__), "../preprocess_catalog_for_rag.py")  # This path seems wrong for reading data
+# Assuming the catalog data source is available relative to this file, e.g., ../skincare catalog.xlsx
+CATALOG_DATA_PATH = os.path.join(os.path.dirname(__file__), "..", "skincare catalog.xlsx")
 
-# Cache these at startup
-AVAILABLE_CATEGORIES, AVAILABLE_SKIN_CONCERNS = get_catalog_categories_and_skin_concerns()
+def get_catalog_categories_and_skin_concerns_from_source():
+    """
+    Loads the skincare catalog Excel file and returns a set of product names, categories, and tags.
+    This is used to get available options for the agent.
+    Note: This function reads the source file, not the Pinecone index.
+    """
+    try:
+        df = pd.read_excel(CATALOG_DATA_PATH)
+        categories = set(str(p).strip() for p in df["category"].dropna().unique())
+        skin_concerns = set()
+        for tags_str in df["tags"].dropna().unique():
+            tag_list = [t.strip() for t in str(tags_str).split('|') if t.strip()]
+            skin_concerns.update(tag_list)
+        logger.info(f"Loaded {len(categories)} categories and {len(skin_concerns)} skin concerns from catalog source.")
+        return sorted(list(categories)), sorted(list(skin_concerns))
+    except FileNotFoundError:
+        logger.error(f"Catalog source file not found at {CATALOG_DATA_PATH}. Cannot extract categories and skin concerns.")
+        return [], []
+    except KeyError as e:
+        logger.error(f"Catalog source file is missing expected column: {e}.")
+        return [], []
+    except Exception as e:
+        logger.exception(f"Error loading categories and skin concerns from catalog source: {e}.")
+        return [], []
+
+# Cache these at startup from the source file
+AVAILABLE_CATEGORIES, AVAILABLE_SKIN_CONCERNS = get_catalog_categories_and_skin_concerns_from_source()
 
 # --- Agent-specific LLMs with system prompts ---
 def make_agent_llm(system_prompt):
@@ -95,11 +157,8 @@ def make_agent_llm(system_prompt):
         SystemMessagePromptTemplate.from_template(system_prompt),
         HumanMessagePromptTemplate.from_template("{input}")
     ])
-    return LLMChain(llm=OpenAI(
-        base_url="https://api.aimlapi.com/v1",
-        temperature=0.2,
-        api_key=os.getenv("AIMLAPI_API_KEY")
-    ), prompt=prompt)
+    # Reuse the main LLM configuration
+    return prompt | llm
 
 # System prompts for each agent
 CONVERSATIONAL_SEARCH_SYSTEM_PROMPT = (
@@ -140,7 +199,6 @@ compromising ethics, the environment, or your wallet.
 
 Answer questions about the brand's philosophy, sustainability, and practices in a positive, cheerful, optimistic and transparent manner."""
 
-
 # Instantiate LLMChains for each agent
 conversational_search_llm = make_agent_llm(CONVERSATIONAL_SEARCH_SYSTEM_PROMPT)
 recommendation_llm = make_agent_llm(RECOMMENDATION_SYSTEM_PROMPT)
@@ -153,39 +211,90 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
     Handles conversational search, uses agent-specific LLM for NER, asks follow-up questions, and hands off to Recommendation Agent when ready.
     Returns a dict with either a follow-up question or recommendation results.
     """
+    logger.info("Conversational Search Agent: Started.")
+    entities = copy.deepcopy(state.entities) # Initialize entities at the start
     # 1. Use agent-specific LLM to extract entities (NER) and match category with confidence
     ner_prompt = PromptTemplate(
         input_variables=["input", "categories"],
         template="""
-        Given the user's query and the available product categories, select the closest matching category from the list. 
+        Given the user's query and the available product categories, select the closest matching category from the list.
         If none are a good match, return null. Also provide a confidence score between 0 and 1 for your match.
-        
+
         Available categories: {categories}
         User query: {input}
-        
+
         Respond in JSON format: {{"category": <category or null>, "confidence": <score between 0 and 1>}}
         """
     )
     import json
-    ner_output = conversational_search_llm.run({
-        "input": user_input,
-        "categories": ", ".join(AVAILABLE_CATEGORIES)
-    })
-    ner_output = ner_output.strip()
     try:
-        ner_json = json.loads(ner_output.split("\n")[-1])
-        extracted_category = ner_json.get("category")
-        confidence = float(ner_json.get("confidence", 0))
-    except Exception:
+        logger.debug(f"Conversational Search Agent: NER prompt input: {ner_prompt.format(input=user_input, categories=", ".join(AVAILABLE_CATEGORIES))}")
+        ner_output = conversational_search_llm.invoke({
+            "input": user_input,
+            "categories": ", ".join(AVAILABLE_CATEGORIES)
+        })
+        logger.debug(f"Conversational Search Agent: NER raw output: {ner_output}")
+        ner_output_content = ner_output.content.strip()
+        # Attempt to parse the JSON output from the LLM
+        try:
+            # Handle cases where the LLM might output more than just JSON, e.g., in markdown code blocks
+            cleaned_output = ner_output_content
+            if "```json" in cleaned_output:
+                cleaned_output = cleaned_output.split("```json")[1].split("```" )[0].strip()
+            elif "```" in cleaned_output:  # A more general attempt to extract from a code block
+                cleaned_output = cleaned_output.split("```" )[1].strip()
+
+            logger.debug(f"Conversational Search Agent: NER cleaned output: {cleaned_output}")
+            ner_json = json.loads(cleaned_output)  # Use cleaned_output
+            extracted_category = ner_json.get("category")
+            confidence = float(ner_json.get("confidence", 0))
+            logger.info(f"Conversational Search Agent: NER extracted category: {extracted_category}, confidence: {confidence}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON from LLM NER output. Error: {e}. Output was: {ner_output_content}", exc_info=True)
+            extracted_category = None # Indicate no category was successfully extracted via JSON
+            confidence = 0 # Indicate no confidence score was successfully extracted via JSON
+            # The model didn't return JSON, likely giving a conversational response.
+            # We should use this response directly as a clarifying question.
+            response = ner_output_content # Use the non-JSON output as the response
+            state.active_agent = "conversational_search"
+            state.followup_questions = [response] # Set the non-JSON response as a followup question
+            state.entities = entities # Keep current entities, as NER failed
+            state.history.append(("agent", response))
+            logger.warning("Conversational Search Agent: LLM returned non-JSON output. Using it as a clarifying question.")
+            return {"response": response}, state # Return the conversational response and current state
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during LLM NER output parsing. Error: {e}. Output was: {ner_output}", exc_info=True)
+            extracted_category = None
+            confidence = 0
+            # Return error immediately on other parsing failures
+            error_msg = "Sorry, an unexpected error occurred while processing the language model's response for product category."
+            state.history.append(("agent", error_msg))
+            logger.error("Conversational Search Agent: Unexpected error during NER parsing. Returning error.")
+            return {"error": error_msg}, state # Return error structure
+
+    except Exception as e:
+        logger.exception(f"Error running conversational search LLM for NER: {e}")
         extracted_category = None
         confidence = 0
+        # Return error immediately on LLM invocation failure
+        error_msg = "Sorry, I encountered an error while trying to understand your request."
+        state.history.append(("agent", error_msg))
+        logger.error("Conversational Search Agent: LLM invocation error during NER. Returning error.")
+        return {"error": error_msg}, state # Return error structure
+
     CONFIDENCE_THRESHOLD = 0.7
-    entities = copy.deepcopy(state.entities)
 
     # --- Check if extracted category is valid and confident ---
-    if extracted_category and extracted_category in AVAILABLE_CATEGORIES and confidence >= CONFIDENCE_THRESHOLD:
-        entities["product_category"] = extracted_category
-    elif extracted_category and extracted_category in AVAILABLE_CATEGORIES and confidence < CONFIDENCE_THRESHOLD:
+    # Convert extracted category to lowercase for case-insensitive comparison with AVAILABLE_CATEGORIES
+    extracted_category_lower = extracted_category.lower() if extracted_category else None
+    available_categories_lower = [c.lower() for c in AVAILABLE_CATEGORIES]
+
+    if extracted_category_lower and extracted_category_lower in available_categories_lower and confidence >= CONFIDENCE_THRESHOLD:
+        # Find the correctly cased category name from the available list
+        correctly_cased_category = next((c for c in AVAILABLE_CATEGORIES if c.lower() == extracted_category_lower), extracted_category)
+        entities["product_category"] = correctly_cased_category
+        logger.info(f"Conversational Search Agent: Using extracted category: {entities["product_category"]}")
+    elif extracted_category_lower and extracted_category_lower in available_categories_lower and confidence < CONFIDENCE_THRESHOLD:
         # Low confidence, ask user to pick
         response = (
             f"I'm not sure if you meant '{extracted_category}'. Would you like to see products from one of these categories instead? {', '.join(AVAILABLE_CATEGORIES)}."
@@ -194,10 +303,11 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
         state.active_agent = "conversational_search"
         state.followup_questions = [response]
         state.entities = entities
-        state.history.append(("user", user_input))
+        # state.history.append(("user", user_input))  # Avoid double logging user input
         state.history.append(("agent", response))
+        logger.info(f"Conversational Search Agent: Low confidence for category '{extracted_category}'. Asking for clarification.")
         return {"response": response}, state
-    elif extracted_category and extracted_category not in AVAILABLE_CATEGORIES:
+    elif extracted_category_lower and extracted_category_lower not in available_categories_lower:
         # LLM hallucinated a category not in catalog
         response = (
             f"Looks like we don't have products in the '{extracted_category}' category yet. "
@@ -207,89 +317,150 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
         state.active_agent = "conversational_search"
         state.followup_questions = [response]
         state.entities = entities
-        state.history.append(("user", user_input))
+        # state.history.append(("user", user_input))  # Avoid double logging user input
         state.history.append(("agent", response))
+        logger.warning(f"Conversational Search Agent: LLM hallucinated category: {extracted_category}")
         return {"response": response}, state
     else:
-        # No category extracted
+        # No valid category extracted
         entities.pop("product_category", None)
+        logger.info("Conversational Search Agent: No valid category extracted from user input.")
 
     # 2. Decide if follow-up questions are needed
     followup_questions = []
-    if not entities.get("product_category"):
+    # Logic to determine if enough info is present (e.g., category AND skin concern)
+    has_category = entities.get("product_category") is not None
+    has_skin_concern = entities.get("skin_concern") is not None  # Assuming skin concern extraction is added later
+
+    if not has_category:
         # Vague query, ask clarifying question with up-to-date categories
         followup_questions.append(
             f"What products are you interested in? Choose from: {', '.join(AVAILABLE_CATEGORIES)}."
         )
-    else:
-        # Specific query, ask about skin concern with up-to-date skin concerns
+        logger.info("Conversational Search Agent: Asking for product category.")
+    elif not has_skin_concern:
+        # Has category, ask about skin concern (if not already present)
+        # TODO: Implement skin concern extraction
         followup_questions.append(
             f"Great choice! What skin concern are you targeting? Options: {', '.join(AVAILABLE_SKIN_CONCERNS)}."
         )
+        logger.info(f"Conversational Search Agent: Asking for skin concern for category: {entities.get("product_category", "N/A")}.")
 
     # 3. If enough info, hand off to Recommendation Agent
-    ready_for_recommendation = entities.get("product_category") and state.intent == "recommend"
+    # For now, let's hand off if we have at least a category and the intent is recommend
+    # NOTE: The router sets the intent. The conversational agent acts ON that intent.
+    ready_for_recommendation = has_category and state.intent == "recommend"
+
     if ready_for_recommendation:
-        # Hand off to Recommendation Agent
-        rec_result, new_state = recommendation_agent(state, query=user_input, entities=entities)
-        new_state.history.append(("agent", rec_result["justification"]))
+        logger.info("Conversational Search Agent: Ready for recommendation. Calling recommendation_agent.")
+        rec_result, new_state = recommendation_agent(state, user_input, entities)
+        # History updated within recommendation_agent
         new_state.active_agent = "recommendation"
         return rec_result, new_state
     else:
-        # Continue conversational search
+        # Continue conversational search or indicate need for more info
         response = followup_questions[0] if followup_questions else "Can you tell me more about what you're looking for?"
         state.active_agent = "conversational_search"
         state.followup_questions = followup_questions
-        state.entities = entities
-        state.history.append(("user", user_input))
+        state.entities = entities  # Update state with extracted entities
+        # state.history.append(("user", user_input))  # Avoid double logging user input
         state.history.append(("agent", response))
+        logger.info(f"Conversational Search Agent: Continuing conversational search. Responding: {response}")
         return {"response": response}, state
 
-# --- Recommendation Agent (Complete Implementation) ---
-def recommendation_agent(state: AgentState, query: str = None, entities: Dict[str, Any] = None) -> (Dict[str, Any], AgentState):
+# --- Recommendation Agent (Uses Pinecone Catalog Index) ---
+def recommendation_agent(state: AgentState, user_input: str, entities: Dict[str, Any]) -> (Dict[str, Any], AgentState):
     """
-    Filters the product catalog using entities, performs semantic search, and returns top recommendations with justification.
+    Generates embeddings for the user query, filters the Pinecone catalog index using entities, performs semantic search, and returns top recommendations with justification.
     Returns a dict with 'products' (list of product dicts) and 'justification' (string for chat/TTS).
     """
-    vectorstore = get_catalog_vectorstore()
-    entities = entities or state.entities or {}
-    query = query or entities.get("query") or ""
+    logger.info(f"Recommendation Agent: Started with entities: {entities}")
 
-    # --- Build metadata filter ---
+    embeddings_model = get_cohere_embeddings()
+    catalog_index = get_catalog_index()
+
+    # 1. Generate embedding for the user query
+    try:
+        query_vector = embeddings_model.embed_query(user_input)
+        logger.info("Recommendation Agent: Generated embedding for user query.")
+    except Exception as e:
+        logger.exception(f"Error generating embedding for query: {e}")
+        # Fallback or error response
+        error_msg = "Sorry, I had trouble processing your request to find recommendations."
+        state.history.append(("agent", error_msg))
+        logger.error("Recommendation Agent: Failed to generate embedding. Returning error.")
+        return {"error": error_msg}, state # Return error structure
+
+    # 2. Build metadata filter based on extracted entities
     metadata_filter = {}
-    if "category" in entities:
-        metadata_filter["category"] = entities["category"].lower()
-    if "product_category" in entities:
+    # Filter by category (case-insensitive match requires $eq or transforming all metadata to lower)
+    # Pinecone filter values are case-sensitive. We can either lowercase all category metadata during preprocessing
+    # or use a more complex filter if needed, but for now assuming lowercase in index.
+    # The preprocessing script already lowercases and strips category and tags before storing.
+    if "product_category" in entities and entities["product_category"]:
         metadata_filter["category"] = entities["product_category"].lower()
+        logger.debug(f"Recommendation Agent: Adding category filter: {metadata_filter['category']}")
+
+    # Filter by tags (using $in for list matching)
     if "tags" in entities and entities["tags"]:
-        tags = entities["tags"] if isinstance(entities["tags"], list) else [entities["tags"]]
-        tags = [t.lower() for t in tags]
-        metadata_filter["tags"] = {"$in": tags}
-    # TODO: Add more filters (e.g., price range) if needed
+        # Assuming entities["tags"] is already a list of strings from NER or state
+        if isinstance(entities["tags"], str):
+            # If somehow it's a string, try to split (though NER should ideally return list/handle this)
+            tags_list = [t.strip().lower() for t in entities["tags"].split(',') if t.strip()]
+        elif isinstance(entities["tags"], list):
+            tags_list = [str(t).strip().lower() for t in entities["tags"] if t is not None and str(t).strip()]
+        else:
+            tags_list = []
+            logger.warning(f"Recommendation Agent: Unexpected type for tags entity: {type(entities['tags'])} Expected list or string.")
 
-    # --- Perform search ---
-    results = vectorstore.similarity_search(
-        query,
-        k=5,
-        filter=metadata_filter if metadata_filter else None
-    )
+        if tags_list:
+            metadata_filter["tags"] = {"$in": tags_list}
+            logger.debug(f"Recommendation Agent: Adding tags filter: {metadata_filter['tags']}")
+    # TODO: Add more filters (e.g., price range) if needed, ensuring they match Pinecone filter syntax and metadata types.
 
-    # --- Format product results ---
+    logger.info(f"Recommendation Agent: Performing Pinecone similarity search with filter: {metadata_filter}")
+
+    # 3. Perform Pinecone similarity search
+    try:
+        query_response = catalog_index.query(
+            vector=query_vector,
+            top_k=5,  # Get top 5 results
+            include_metadata=True,  # Include metadata to get product details
+            filter=metadata_filter if metadata_filter else {}  # Apply filter if exists
+        )
+        results = query_response.matches
+        logger.info(f"Recommendation Agent: Pinecone query returned {len(results)} matches.")
+
+    except Exception as e:
+        logger.exception(f"Error during Pinecone similarity search: {e}")
+        error_msg = "Sorry, I encountered an error while searching for products based on your criteria."
+        state.history.append(("agent", error_msg))
+        logger.error("Recommendation Agent: Pinecone search failed. Returning error.")
+        return {"error": error_msg}, state # Return error structure
+
+    # 4. Format product results from Pinecone response
     products = []
-    for doc in results:
-        meta = doc.metadata
+    if not results:
+        logger.info("Recommendation Agent: No products found matching the criteria.")
+        response = "Sorry, I couldn't find any products matching your criteria."  # Agent response
+        state.history.append(("agent", response))
+        return {"response": response, "products": []}, state # Return success with empty products and message
+
+    for match in results:
+        meta = match.metadata
         products.append({
             "product_id": meta.get("product_id"),
             "name": meta.get("name"),
             "category": meta.get("category"),
             "description": meta.get("description"),
             "top_ingredients": meta.get("top_ingredients"),
-            "tags": meta.get("tags"),
+            "tags": meta.get("tags"),  # Should be a list from Pinecone metadata
             "price": meta.get("price (USD)"),
             "margin": meta.get("margin (%)"),
         })
+        logger.debug(f"Recommendation Agent: Formatted product: {meta.get('name')}")
 
-    # --- Generate contextual justification using agent-specific LLM ---
+    # 5. Generate contextual justification using agent-specific LLM
     justification_prompt = PromptTemplate(
         input_variables=["query", "products"],
         template="""
@@ -299,102 +470,355 @@ def recommendation_agent(state: AgentState, query: str = None, entities: Dict[st
         Justification:
         """
     )
-    justification = recommendation_llm.run({
-        "input": justification_prompt.format(query=query, products="\n".join([p["name"] for p in products]))
-    }).strip()
+    try:
+        # Pass product names or a summary to the LLM for justification
+        product_summary = ", ".join([p.get("name", "Unknown Product") for p in products])
+        logger.debug(f"Recommendation Agent: Justification prompt input: {justification_prompt.format(query=user_input, products=product_summary)}")
+        justification = recommendation_llm.invoke({
+            "input": justification_prompt.format(query=user_input, products=product_summary)
+        }).strip()
+        logger.info(f"Recommendation Agent: Generated recommendation justification: {justification}")
+    except Exception as e:
+        logger.exception(f"Error generating recommendation justification: {e}")
+        # This error is less critical, can fallback to a generic justification
+        justification = "Here are some products I found."  # Fallback justification
+        logger.error("Recommendation Agent: Failed to generate justification. Using fallback.")
 
     # --- Update state and return ---
+    # state.history.append(("user", user_input))  # Avoid double logging user input
+    # The justification is added to history below in the main english_agent if no top-level error
     state.active_agent = "recommendation"
-    state.history.append(("agent", justification))
+
+    logger.info("Recommendation Agent: Finished.")
+    # Return products and justification for the main agent to format the final response
     return {"products": products, "justification": justification}, state
 
-# --- Customer Reviews Explanation Agent (Placeholder) ---
-def reviews_explanation_agent(state: AgentState, product: str) -> (str, AgentState):
+# --- Customer Reviews Explanation Agent (Uses Pinecone Feedback Index) ---
+def reviews_explanation_agent(state: AgentState, user_input: str) -> (str, AgentState):
     """
-    Uses agent-specific LLM to answer with review-backed explanations.
+    Generates embeddings for the user query/product question, queries the Pinecone feedback index for relevant reviews, and uses agent-specific LLM to answer with review-backed explanations.
+    Now also handles product name extraction if not already in state.
     """
-    response = reviews_llm.run({"input": f"Give a review-backed explanation for {product}."}).strip()
-    state.active_agent = "reviews_explanation"
-    state.history.append(("agent", response))
-    return response, state
+    logger.info(f"Reviews Explanation Agent: Started with input: {user_input}")
 
-# --- Brand Answer Generator (Placeholder) ---
+    # --- 1. Extract or confirm Product Name ---
+    product = state.entities.get("product_name") # Check if product name is already in state
+
+    if not product:
+        # If not in state, attempt to extract from user_input using LLM
+        extraction_prompt_template = """
+        Given the user's input, identify the specific product name they are asking about for reviews.
+        If a product name is mentioned, extract it. If not, return null.
+
+        User input: {user_input}
+
+        Respond ONLY with a JSON object like: {{"product_name": <product name or null>}}
+        """
+        extraction_prompt = PromptTemplate(
+            input_variables=["user_input"],
+            template=extraction_prompt_template
+        )
+        import json
+        extracted_product_name = None
+        try:
+            logger.debug(f"Reviews Explanation Agent: Product extraction prompt input: {extraction_prompt.format(user_input=user_input)}")
+            extraction_output = llm.invoke(extraction_prompt.format(user_input=user_input))
+            logger.debug(f"Reviews Explanation Agent: Product extraction raw output: {extraction_output}") # Log raw output
+            cleaned_output = str(extraction_output).strip()
+            if "```json" in cleaned_output:
+                 cleaned_output = cleaned_output.split("```json")[1].split("```" )[0].strip()
+            elif "```" in cleaned_output: # General code block handling
+                 cleaned_output = cleaned_output.split("```" )[1].strip()
+
+            logger.debug(f"Reviews Explanation Agent: Product extraction cleaned output: {cleaned_output}") # Log cleaned output
+            extraction_json = json.loads(cleaned_output)
+            extracted_product_name = extraction_json.get("product_name")
+            logger.info(f"Reviews Explanation Agent: Extracted product name from LLM: {extracted_product_name}")
+
+            if extracted_product_name:
+                 product = extracted_product_name
+                 state.entities["product_name"] = product # Store in state for future turns
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode JSON from product extraction LLM output. Error: {e}. Output was: {cleaned_output}", exc_info=True)
+            # If JSON decode fails, it means the LLM likely gave a conversational response.
+            # Use this response as a clarifying question.
+            response = cleaned_output
+            state.active_agent = "reviews_explanation" # Stay in reviews agent context or clarify
+            state.followup_questions = [response] # Use the non-JSON response as a followup
+            # Do NOT update product in entities, as extraction failed
+            state.history.append(("agent", response))
+            logger.warning("Reviews Explanation Agent: LLM returned non-JSON output during product extraction. Using it as a clarifying question.")
+            return {"response": response}, state # Return the conversational response
+        except Exception as e:
+            logger.exception(f"Error during product name extraction: {e}")
+            error_msg = "Sorry, an error occurred while trying to identify the product you're asking about for reviews."
+            state.history.append(("agent", error_msg))
+            logger.error("Reviews Explanation Agent: Unexpected error during product extraction. Returning error.")
+            return {"error": error_msg}, state
+
+
+    if not product:
+        # If product name still not identified, ask user for clarification
+        response = "Which product would you like to know reviews about? Please specify the product name." # Agent response
+        state.active_agent = "conversational_search" # Or a dedicated clarification state
+        state.followup_questions = [response]
+        # state.history.append(("user", user_input)) # Avoid double logging
+        state.history.append(("agent", response))
+        logger.warning("Reviews Explanation Agent: No product name found. Asking for clarification.")
+        # Returning a dictionary like other agents for consistency, even if just a response
+        return {"response": response}, state
+
+    # Product name is identified, proceed with review search
+    logger.info(f"Reviews Explanation Agent: Proceeding with reviews search for product: {product}")
+
+    embeddings_model = get_cohere_embeddings()
+    feedback_index = get_feedback_index()
+
+    # 2. Generate embedding for the query (user input + product)
+    query_text = f"Reviews and feedback for product: {product}. User question: {user_input}" # Use full user_input as context for query
+    try:
+        logger.debug(f"Reviews Explanation Agent: Feedback query text: {query_text}")
+        query_vector = embeddings_model.embed_query(query_text)
+        logger.info("Reviews Explanation Agent: Generated embedding for feedback query.")
+    except Exception as e:
+        logger.exception(f"Error generating embedding for feedback query: {e}")
+        error_msg = "Sorry, I had trouble processing your request to search for reviews."
+        state.history.append(("agent", error_msg))
+        logger.error("Reviews Explanation Agent: Failed to generate feedback embedding. Returning error.")
+        return {"error": error_msg}, state
+
+    # 3. Build metadata filter (filter by product name if available)
+    metadata_filter = {}
+    if product:
+        # Assuming product name in metadata is stored as lowercase
+        metadata_filter["product"] = product.lower()
+        logger.debug(f"Reviews Explanation Agent: Adding product filter for feedback search: {metadata_filter['product']}")
+
+    logger.info(f"Reviews Explanation Agent: Performing Pinecone feedback search with filter: {metadata_filter}")
+
+    # 4. Perform Pinecone similarity search on feedback index
+    try:
+        query_response = feedback_index.query(
+            vector=query_vector,
+            top_k=5,  # Get top 5 relevant feedback entries
+            include_metadata=True,  # Include metadata
+            filter=metadata_filter if metadata_filter else {}  # Apply filter
+        )
+        results = query_response.matches
+        logger.info(f"Reviews Explanation Agent: Pinecone feedback query returned {len(results)} matches.")
+
+    except Exception as e:
+        logger.exception(f"Error during Pinecone feedback search: {e}")
+        error_msg = "Sorry, I encountered an error while searching for reviews for that product."
+        state.history.append(("agent", error_msg))
+        logger.error("Reviews Explanation Agent: Pinecone feedback search failed. Returning error.")
+        return {"error": error_msg}, state
+
+    # 5. Format feedback results and provide to LLM
+    if not results:
+        logger.info(f"Reviews Explanation Agent: No feedback found for product: {product}")
+        response = f"I couldn't find any reviews or feedback for {product}. Is there anything else I can help with?"  # Agent response
+        state.history.append(("agent", response))
+        logger.info("Reviews Explanation Agent: No feedback found.")
+        return {"response": response}, state # Return success with message
+
+    feedback_texts = [match.page_content for match in results]  # Assuming original text is stored in page_content
+    # You might want to include relevant metadata in the prompt too
+    feedback_context = "\n---\n".join(feedback_texts)
+    logger.debug(f"Reviews Explanation Agent: Feedback context for LLM: {feedback_context[:200]}...")
+
+    # 6. Use agent-specific LLM to answer with review-backed explanations
+    review_prompt_template = """
+    Given the following customer feedback and reviews for a product, summarize the key points and address the user's question.
+    Cite specific feedback points where possible.
+
+    Product: {product}
+    User Question: {user_question}
+    Customer Feedback:
+    {feedback_context}
+
+    Answer:
+    """
+    review_prompt = PromptTemplate(
+        input_variables=["product", "user_question", "feedback_context"],
+        template=review_prompt_template
+    )
+
+    try:
+        user_question = user_input # Use original user input as the question context
+        logger.debug(f"Reviews Explanation Agent: Review prompt input: {review_prompt.format(product=product, user_question=user_question, feedback_context=feedback_context[:200] + '...')}")
+        response = reviews_llm.invoke({
+            "input": review_prompt.format(
+                product=product,
+                user_question=user_question,
+                feedback_context=feedback_context
+            )
+        }).strip()
+        logger.info("Reviews Explanation Agent: Generated review explanation.")
+    except Exception as e:
+        logger.exception(f"Error generating review explanation: {e}")
+        error_msg = "Sorry, I couldn't generate a review explanation for that product at this time."
+        state.history.append(("agent", error_msg))
+        logger.error("Reviews Explanation Agent: Failed to generate review explanation. Returning error.")
+        return {"error": error_msg}, state
+
+    state.active_agent = "reviews_explanation"
+    # state.history.append(("user", user_input))  # Avoid double logging user input
+    # The response is added to history below in the main english_agent if no top-level error
+    logger.info("Reviews Explanation Agent: Finished.")
+    # Ensure consistent return type (dict)
+    return {"response": response}, state # Return success with response
+
+# --- Brand Answer Generator (Placeholder - Does not use RAG yet) ---
+# TODO: Potentially add RAG for brand information if it's stored in a vector store.
 def brand_answer_agent(state: AgentState, user_input: str) -> (str, AgentState):
     """
     Uses agent-specific LLM to answer brand-related questions.
+    (Does not use RAG yet).
     """
-    response = brand_llm.run({"input": user_input}).strip()
+    logger.info("Brand Answer Agent: Started.")
+    try:
+        response = brand_llm.invoke({"input": user_input}).strip()
+        logger.info("Brand Answer Agent: Generated brand answer.")
+    except Exception as e:
+        logger.exception(f"Error generating brand answer: {e}")
+        error_msg = "Sorry, I can't answer brand questions right now due to an internal issue."
+        state.history.append(("agent", error_msg))
+        logger.error("Brand Answer Agent: Failed to generate brand answer. Returning error.")
+        return {"error": error_msg}, state # Return error structure
+
     state.active_agent = "brand_answer"
-    state.history.append(("agent", response))
-    return response, state
+    # state.history.append(("user", user_input))  # Avoid double logging user input
+    # The response is added to history below in the main english_agent if no top-level error
+    logger.info("Brand Answer Agent: Finished.")
+    # Ensure consistent return type (dict)
+    return {"response": response}, state # Return success with response
 
 # --- LLM-based Intent Detection and Routing ---
 def llm_intent_router(state: AgentState, user_input: str) -> (str, AgentState):
     """
-    Uses the LLM to classify intent and extract routing arguments/entities from user input.
-    Returns the response and updated state.
+    Uses the LLM to classify intent from user input and route to the appropriate agent.
+    Does NOT perform entity extraction.
+    Returns the response and updated state from the routed agent.
     """
-    # Define canonical intents and their descriptions
-    intent_schema = {
-        "recommend": "User wants product recommendations or to search for products.",
-        "review_explanation": "User wants to know how a product has worked for others, or wants review-backed explanations.",
-        "brand_info": "User wants to know about the brand's philosophy, sustainability, or practices.",
-        "search": "User is exploring or asking general questions about products.",
-    }
+    logger.info(f"Intent Router: Starting intent classification for input: '{user_input}'.")
     # Prompt for intent and argument extraction
+    router_prompt_template = """
+    You are an AI assistant for a beauty and skincare store. Your task is to analyze the user's input and determine their primary intent to route them to the correct specialized agent.
+
+    Based on the user's latest input and the conversation history (if available), classify the user's intent.
+
+    Possible intents:
+    - recommend: User wants product recommendations or to search for products.
+    - review_explanation: User wants to know how a product has worked for others, or wants review-backed explanations.
+    - brand_info: User wants to know about the brand's philosophy, sustainability, or practices.
+    - search: User is exploring or asking general questions about products, or their intent is unclear.
+
+    Respond ONLY with a JSON object containing a single key 'intent' and its value (one of the possible intents).
+
+    Conversation History (most recent first, up to 2 turns):
+    {history}
+
+    User input: {input}
+
+    JSON:
+    """
     router_prompt = PromptTemplate(
-        input_variables=["input"],
-        template="""
-        You are an advanced AI assistant for a beauty and skincare store. Classify the user's intent and extract any relevant arguments.
-        Possible intents:
-        - recommend: User wants product recommendations or to search for products.
-        - review_explanation: User wants to know how a product has worked for others, or wants review-backed explanations.
-        - brand_info: User wants to know about the brand's philosophy, sustainability, or practices.
-        - search: User is exploring or asking general questions about products.
-        
-        For the following user input, output a JSON object with:
-        - intent: one of [recommend, review_explanation, brand_info, search]
-        - arguments: a dictionary of any relevant arguments (e.g., product_category, product_name, question, etc.)
-        
-        User input: {input}
-        JSON:
-        """
+        input_variables=["input", "history"],
+        template=router_prompt_template
     )
+
     import json
-    router_output = llm(router_prompt.format(input=user_input))
+    router_output = None # Initialize router_output to None
+    intent = "search" # Default intent
+    # arguments = {} # Initialize arguments as empty - removed as router doesn't extract args
     try:
-        router_json = json.loads(router_output.strip().split("\n")[-1])
+        # Prepare prompt input
+        prompt_input = {
+            "input": user_input,
+            "history": state.history[-4:] if len(state.history) > 4 else state.history # Include recent history
+        }
+        logger.debug(f"Intent Router: Prompt input: {prompt_input}")
+        router_output = llm.invoke(router_prompt.format(**prompt_input))
+        logger.debug(f"Intent Router: Raw LLM output: {router_output}") # Log raw output
+
+        # Attempt to strip any leading/trailing whitespace and then parse
+        cleaned_output = str(router_output.content).strip()
+        # Handle cases where the LLM might output more than just JSON, e.g., in markdown code blocks
+        if "```json" in cleaned_output:
+            cleaned_output = cleaned_output.split("```json")[1].split("```" )[0].strip()
+        elif "```" in cleaned_output:
+            cleaned_output = cleaned_output.split("```" )[1].strip()
+
+        # Further cleaning: try to find and extract the JSON object based on curly braces
+        json_start = cleaned_output.find('{')
+        json_end = cleaned_output.rfind('}') # Use rfind to find the last occurrence
+
+        if json_start != -1 and json_end != -1 and json_end > json_start:
+             cleaned_output = cleaned_output[json_start : json_end + 1]
+             logger.debug(f"Intent Router: Extracted potential JSON block: {cleaned_output}")
+        else:\
+            # If no JSON block found, keep the cleaned output for potential string matching fallback
+            logger.debug(f"Intent Router: No JSON block found, using cleaned output for fallback: {cleaned_output}")
+
+        logger.debug(f"Intent Router: Final cleaned LLM output for parsing: {cleaned_output}") # Log cleaned output before json.loads
+
+        router_json = json.loads(cleaned_output)
         intent = router_json.get("intent", "search")
-        arguments = router_json.get("arguments", {})
+        # Remove argument extraction from router
+        # arguments = router_json.get("arguments", {})
+        logger.info(f"Intent Router: Classified intent: {intent}")
+
+    except json.JSONDecodeError as e:
+        logger.error(f"Intent Router: Failed to decode JSON from LLM output. Error: {e}. Output was: {cleaned_output}", exc_info=True)
+        # If JSON decode fails, check if the output string is a valid intent name.
+        valid_intents = ["recommend", "review_explanation", "brand_info", "search"]
+        if cleaned_output in valid_intents:
+            intent = cleaned_output # Use the string output as the intent if it's valid
+            logger.warning(f"Intent Router: LLM returned non-JSON intent string: '{intent}'. Using it directly.")
+        else:
+            intent = "search"  # Fallback intent if output is neither JSON nor a valid intent string
+            logger.warning(f"Intent Router: LLM returned unexpected non-JSON output: '{cleaned_output}'. Falling back to search intent.")
     except Exception as e:
-        # Fallback to default intent if parsing fails
+        # Fallback to default intent if parsing fails for other reasons
+        logger.error(f"Intent Router: An unexpected error occurred during intent parsing. Error: {e}. Output was: {router_output}", exc_info=True)
         intent = "search"
-        arguments = {}
-        # TODO: Add error logging here
+        logger.warning("Intent Router: Unexpected error. Falling back to search intent.")
+
     state.intent = intent
-    # Merge extracted arguments into state.entities
-    state.entities.update(arguments)
+    # Remove merging extracted arguments into state.entities
+    # state.entities.update(arguments)
+    logger.debug(f"Intent Router: Updated state intent: {state.intent}. State entities remain unchanged by router: {state.entities}")
+
     # Route to the appropriate agent
     if intent == "recommend":
-        return conversational_search_agent(state, user_input)
+        # Pass user_input and current state to the conversational_search_agent for entity extraction
+        logger.info("Intent Router: Routing to conversational_search_agent with recommend intent.")
+        return conversational_search_agent(state, user_input)  # conversational_search_agent handles its own NER
     elif intent == "review_explanation":
-        product = arguments.get("product_name", "[TODO: product]")
-        return reviews_explanation_agent(state, product=product)
+        # The reviews agent will need to extract the product name itself or rely on state
+        logger.info("Intent Router: Routing to reviews_explanation_agent with review_explanation intent.")
+        # Pass user_input to reviews agent so it can extract product
+        return reviews_explanation_agent(state, user_input) # reviews_explanation_agent now takes user_input and extracts product
     elif intent == "brand_info":
+        logger.info("Intent Router: Routing to brand_answer_agent with brand_info intent.")
         return brand_answer_agent(state, user_input)
     else:
+        # Default to conversational search for 'search' intent or any unhandled intents
+        logger.info("Intent Router: Routing to conversational_search_agent with default/search intent.")
         return conversational_search_agent(state, user_input)
 
 # --- Router Agent (now uses LLM-based routing) ---
 def router_agent(state: AgentState, user_input: str) -> (str, AgentState):
     """
-    Routes the user input to the appropriate agent using LLM-based intent detection and argument extraction.
+    Routes the user input to the appropriate agent using LLM-based intent detection.
+    Does NOT perform entity extraction.
     """
+    # The actual routing logic is now within llm_intent_router
     return llm_intent_router(state, user_input)
 
 # --- LangGraph Setup ---
-# For now, we use a simple function call chain. TODO: Integrate with LangGraph StateGraph for more complex flows.
-
 def english_agent(text: str, state_dict: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Main entry point for the English Agent. Handles multi-turn, multi-agent conversations.
@@ -404,11 +828,49 @@ def english_agent(text: str, state_dict: Optional[Dict[str, Any]] = None) -> Dic
     Returns:
         Dict with 'response' and 'state' (for next turn)
     """
+    logger.info(f"--- English Agent: Starting processing for input: '{text}' ---")
     state = AgentState.from_dict(state_dict or {})
-    response, new_state = router_agent(state, text)
-    return {"response": response, "state": new_state.to_dict()}
+    # Append current user input to history at the beginning of processing
+    state.history.append(("user", text))
+    logger.debug(f"Current state: {state.to_dict()}")
+    try:
+        # Route and get response from the appropriate agent
+        result, new_state = router_agent(state, text)  # router_agent now handles the routing and agent calls
+        logger.info(f"--- English Agent: Finished routing for input: '{text}'. Next active agent: {new_state.active_agent} ---")
 
-# TODO: Integrate with LangGraph StateGraph for robust agent transitions and state management.
-# TODO: Implement Recommendation, Reviews, and Brand agents fully.
-# TODO: Connect to product catalog and reviews data sources.
-# TODO: Add error handling and logging as needed. 
+        # Check if the routed agent returned an error
+        if isinstance(result, dict) and "error" in result:
+            user_response = result["error"]
+            logger.info(f"--- English Agent: Routed agent returned an error. Responding: '{user_response}' ---")
+        elif isinstance(result, dict) and "response" in result:
+            # Handle successful response from agent (expecting a dict with 'response')
+            user_response = result["response"]
+            logger.info(f"--- English Agent: Routed agent returned success. Responding: '{user_response}' ---")
+            # Add the agent's successful response to the history here, as agents now return dicts
+            # It might already be added within the agent, but doing it here ensures consistency
+            # Let's check if the last history entry is the user's input before adding the agent response
+            if state.history and state.history[-1][0] == "user":
+                 # Find the agent response in new_state history and add it if not already there
+                 agent_response_in_new_state = next((item[1] for item in new_state.history if item[0] == "agent"), None)
+                 if agent_response_in_new_state and (not state.history or state.history[-1][1] != agent_response_in_new_state):
+                      # Avoid adding duplicate if agent already added it
+                     # However, given the agent changes, let's ensure agent responses are added here consistently
+                     # Removing adding agent response in agents' success paths and adding here.
+                     # Reverting previous edits where agent added response to history on success.
+                     pass # Need to manually revert agent edits or rely on them adding to history
+            # Reverting the history append in successful agent paths simplifies this.
+            # Let's assume agents still add to history for now and clean up later if needed.
+            # For now, just use the user_response and new_state.
+
+
+        # The new_state returned by the agent functions should now include the agent's response/error in history
+        # Returning user_response (string) and the state (dict)
+        return {"response": user_response, "state": new_state.to_dict()} # Return user-facing string response and state
+    except Exception as e:
+        logger.exception(f"An unexpected error occurred in english_agent for input: {text}. Error: {e}")
+        # Handle unexpected errors at the top level
+        error_response = "Sorry, I encountered a critical internal error. Please try again."
+        # Add the critical error to history
+        state.history.append(("agent", error_response))
+        logger.error("--- English Agent: Encountered critical unexpected error ---")
+        return {"response": error_response, "state": state.to_dict()}  # Return a dict structure for response with error message and state

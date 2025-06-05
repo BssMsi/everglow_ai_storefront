@@ -9,8 +9,7 @@ pandas
 openai==1.84.0
 sentence-transformers==4.1.0
 langchain-huggingface==0.2.0
-langchain-chroma==0.2.4
-langchain-openai==0.3.19
+langchain_google_genai==2.1.5
 openpyxl
 pinecone==7.0.2
 rapidfuzz
