@@ -2,7 +2,7 @@
 export interface CustomerProfile {
   name: string;
   email: string;
-  preferredColorScheme: 'default' | 'rose' | 'teal' | 'lavender';
+  preferredColorScheme: 'default' | 'dark' | 'rose' | 'teal' | 'lavender';
   preferredFont: 'inter' | 'roboto' | 'lato';
   // Add other preference-related attributes here
 }

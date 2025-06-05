@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { CustomerProfile, ThemeSettings } from '@/types/profile';
 
 const defaultThemeSettings: ThemeSettings = {
-  colorScheme: 'default',
+  colorScheme: 'dark', // Change default to dark to match the image
   fontFamily: "'Inter', sans-serif", // Default font from layout
 };
 
@@ -16,6 +16,13 @@ const themes: Record<CustomerProfile['preferredColorScheme'], Record<string, str
     '--color-secondary': '#D1D5DB', // Gray-300
     '--color-text': '#1F2937', // Gray-800
     '--color-background': '#FFFFFF', // White
+    '--font-family': "'Inter', sans-serif",
+  },
+  dark: { // Add dark theme to match the image
+    '--color-primary': '#3B82F6', // Blue-500
+    '--color-secondary': '#1E293B', // Slate-800
+    '--color-text': '#FFFFFF', // White
+    '--color-background': '#0F172A', // Slate-900
     '--font-family': "'Inter', sans-serif",
   },
   rose: {
@@ -108,3 +115,5 @@ export const useTheme = () => {
   }
   return context;
 };
+
+// Update the type definition in profile.ts to include 'dark'

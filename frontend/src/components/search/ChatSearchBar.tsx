@@ -110,15 +110,15 @@ export function ChatSearchBar({
   const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: "1",
-      content: "Hello! How can I help you today?",
+      id: "initial-agent-message",
+      content: "Hello! How can I help you find the perfect vegan skincare?",
       sender: "agent",
       timestamp: new Date(),
     },
   ]);
   const containerRef = useRef<HTMLDivElement>(null);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-    minHeight: 40,
+    minHeight: 48, // Increased minHeight for better proportions
     maxHeight: 120,
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -179,7 +179,7 @@ export function ChatSearchBar({
     }, 2000);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { // Changed HTMLInputElement to HTMLTextAreaElement for onKeyDown
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -191,89 +191,119 @@ export function ChatSearchBar({
     .pop();
 
   return (
-    <div className="flex flex-col items-center w-full mt-8 mb-8">
-      <div className="w-full max-w-2xl">
-        {!isExpanded ? (
-          <div
-            className="flex items-center bg-[var(--color-secondary)] rounded-full px-6 py-3 shadow-lg w-full cursor-pointer"
-            onClick={() => setIsExpanded(true)}
-          >
-            <Search className="text-white opacity-70 mr-3" size={22} />
-            <input
-              type="text"
-              value={latestAgentMessage?.content || ''}
-              readOnly
-              className="flex-1 bg-transparent text-white text-base border-none outline-none placeholder:text-white/60 cursor-pointer"
-              placeholder="Ask something..."
-            />
-            <button
-              className="ml-3 text-white/60 hover:text-white"
-              onClick={e => { e.stopPropagation(); setInputValue(''); }}
-            >
-              <XIcon size={22} />
-            </button>
-          </div>
-        ) : (
-          <div className="bg-[var(--color-secondary)] rounded-2xl p-6 shadow-xl w-full">
-            <div className="flex items-center mb-4">
-              <Search className="text-white opacity-70 mr-3" size={22} />
-              <input
-                type="text"
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                className="flex-1 bg-transparent text-white text-base border-none outline-none placeholder:text-white/60"
-                placeholder="Type your question..."
-                onKeyDown={handleKeyDown}
-              />
-              <button
-                className="ml-3 text-white/60 hover:text-white"
-                onClick={() => setIsExpanded(false)}
+    <div className="flex flex-col items-center w-full mt-8 mb-4"> {/* Adjusted mb for suggestions */}
+      <div className="w-full max-w-2xl" ref={containerRef}>
+        <MotionConfig transition={transition}>
+          <AnimatePresence mode="popLayout">
+            {!isExpanded ? (
+              <motion.div
+                key="search-bar-condensed"
+                layoutId="search-bar"
+                className="flex items-center bg-[var(--color-secondary)] rounded-full px-5 py-3.5 shadow-lg w-full cursor-text group focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50 transition-all duration-300 ease-in-out"
+                onClick={() => setIsExpanded(true)}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
               >
-                <XIcon size={22} />
-              </button>
-            </div>
-            <div className="max-h-60 overflow-y-auto space-y-4">
-              {messages.map((msg, idx) => (
-                <div key={msg.id} className="flex flex-col">
-                  <span className="text-sm text-blue-300 font-semibold mb-1">{msg.sender === 'user' ? 'You' : 'Agent'}</span>
-                  <span className="text-base text-white mb-2">{msg.content}</span>
+                <Search className="h-5 w-5 text-gray-400 group-hover:text-gray-200 transition-colors" />
+                <span className="ml-3 text-gray-400 group-hover:text-gray-300 transition-colors truncate">
+                  {placeholder}
+                </span>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="search-bar-expanded"
+                layoutId="search-bar"
+                className="flex flex-col bg-[var(--color-secondary)] rounded-2xl shadow-2xl w-full overflow-hidden border border-[var(--color-accent-dark)]"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                {/* Header of expanded view */}
+                <div className="flex items-center justify-between p-4 border-b border-[var(--color-accent-dark)]">
+                  <div className="flex items-center gap-2">
+                    <Bot className="h-5 w-5 text-[var(--color-primary)]" />
+                    <span className="text-sm font-medium text-white">EcoSkin Assistant</span>
+                  </div>
+                  <button 
+                    onClick={() => setIsExpanded(false)} 
+                    className="p-1.5 rounded-full hover:bg-[var(--color-accent-dark)] transition-colors text-gray-400 hover:text-white"
+                    aria-label="Close chat"
+                  >
+                    <XIcon className="h-5 w-5" />
+                  </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+
+                {/* Messages Area */}
+                <div className="flex-grow p-4 space-y-4 overflow-y-auto h-72 scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-[var(--color-secondary)]">
+                  {messages.map((msg) => (
+                    <motion.div
+                      key={msg.id}
+                      layout
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                    >
+                      <div 
+                        className={`max-w-[75%] p-3 rounded-xl text-sm ${ 
+                          msg.sender === "user" 
+                            ? "bg-[var(--color-primary)] text-white rounded-br-none"
+                            : "bg-[var(--color-background)] text-gray-200 rounded-bl-none border border-[var(--color-accent-dark)]"
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </motion.div>
+                  ))}
+                  {isTyping && (
+                    <motion.div 
+                      className="flex justify-start"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                    >
+                       <div className="max-w-[75%] p-3 rounded-xl bg-[var(--color-background)] text-gray-200 rounded-bl-none border border-[var(--color-accent-dark)] flex items-center">
+                        <span className="mr-1 text-xs">EcoSkin is typing</span><TypingDots />
+                       </div>
+                    </motion.div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Input Area */}
+                <div className="p-3 border-t border-[var(--color-accent-dark)] bg-[var(--color-secondary)]">
+                  <div className="flex items-end bg-[var(--color-background)] rounded-xl p-1.5 border border-[var(--color-accent-dark)] focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50">
+                    <textarea
+                      ref={textareaRef}
+                      value={inputValue}
+                      onChange={(e) => {
+                        setInputValue(e.target.value);
+                        adjustHeight();
+                      }}
+                      onKeyDown={handleKeyDown} // Make sure this is attached to the textarea
+                      placeholder="Ask about vegan skincare..."
+                      className="flex-grow bg-transparent text-white placeholder-gray-500 focus:outline-none resize-none overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-transparent p-2 text-sm"
+                      rows={1}
+                    />
+                    <button 
+                      onClick={handleSendMessage} 
+                      disabled={!inputValue.trim() || isTyping}
+                      className="p-2.5 rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] focus-visible:ring-[var(--color-primary)] ml-2 self-end"
+                      aria-label="Send message"
+                    >
+                      {isTyping ? (
+                        <LoaderIcon className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <SendIcon className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </MotionConfig>
       </div>
     </div>
   );
 }
-
-export default function ChatSearchBarDemo() {
-  return (
-    <div className="min-h-screen bg-background text-foreground p-4 flex flex-col">
-      <div className="flex-1 w-full max-w-3xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Expandable Chat Search Bar</h1>
-        <p className="mb-2">This is a demo of an expandable chat search bar component.</p>
-        <p className="mb-8">Click on the search bar below to expand it and see the full chat interface.</p>
-        
-        <div className="border border-border rounded-lg p-4 mb-4">
-          <h2 className="font-medium mb-2">Sample Content</h2>
-          <p className="text-muted-foreground">
-            This content will be pushed down when the chat expands. Try clicking on the search bar below.
-          </p>
-        </div>
-        
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="border border-border rounded-lg p-4 mb-4">
-            <h3 className="font-medium mb-2">Content Section {i + 1}</h3>
-            <p className="text-muted-foreground">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam euismod, nisl eget
-              aliquam ultricies, nunc nisl aliquet nunc, quis aliquam nisl nunc quis nisl.
-            </p>
-          </div>
-        ))}
-      </div>
-      
-      <ChatSearchBar />
-    </div>
-  );
-} 
