@@ -7,6 +7,7 @@ import os
 import httpx
 import asyncio
 from dotenv import load_dotenv
+import logging
 
 # Load environment variables from .env
 load_dotenv()
@@ -17,6 +18,8 @@ TTS_MODEL = "#g1_aura-angus-en"
 CONTAINER = "wav"
 ENCODING = "linear16"
 SAMPLE_RATE = 24000
+
+logger = logging.getLogger(__name__)
 
 async def text_to_speech(text: str) -> bytes:
     """
@@ -29,8 +32,9 @@ async def text_to_speech(text: str) -> bytes:
         RuntimeError: If the API call fails or audio is not found in the response.
     """
     if not AIML_API_KEY:
+        logger.error("AIML_API_KEY not set in environment variables.")
         raise ValueError("AIML_API_KEY not set in environment variables.")
-
+    logger.info("Starting text-to-speech for text: %s", text[:50])
     url = f"{BASE_URL}/tts"
     headers = {
         "Authorization": f"Bearer {AIML_API_KEY}",
@@ -44,22 +48,25 @@ async def text_to_speech(text: str) -> bytes:
         "encoding": ENCODING,
         "sample_rate": SAMPLE_RATE
     }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=payload, headers=headers)
-        if response.status_code >= 400:
-            raise RuntimeError(f"AIML TTS error: {response.status_code} - {response.text}")
-        # Try to get audio from response content
-        # If the API returns audio directly, it will be in response.content
-        # If not, check for a field or add a TODO for follow-up
-        if response.headers.get("content-type", "").startswith("audio") or response.headers.get("content-type", "").endswith("wav"):
-            return response.content
-        # If response is JSON, audio may be in a field or require a follow-up request
-        try:
-            data = response.json()
-            # TODO: If the API returns a URL or key to fetch audio, implement follow-up fetch here
-            raise RuntimeError(f"AIML TTS: Audio data not found in response. Metadata: {data}")
-        except Exception:
-            raise RuntimeError("AIML TTS: Unexpected response format, audio not found.")
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, headers=headers)
+            logger.info("TTS response status: %d", response.status_code)
+            if response.status_code >= 400:
+                logger.error("AIML TTS error: %d - %s", response.status_code, response.text)
+                raise RuntimeError(f"AIML TTS error: {response.status_code} - {response.text}")
+            if response.headers.get("content-type", "").startswith("audio") or response.headers.get("content-type", "").endswith("wav"):
+                logger.info("TTS succeeded, returning audio bytes.")
+                return response.content
+            try:
+                data = response.json()
+                logger.error("AIML TTS: Audio data not found in response. Metadata: %s", data)
+                raise RuntimeError(f"AIML TTS: Audio data not found in response. Metadata: {data}")
+            except Exception as e:
+                logger.exception("AIML TTS: Unexpected response format, audio not found. Error: %s", e)
+                raise RuntimeError("AIML TTS: Unexpected response format, audio not found.")
+    except Exception as e:
+        logger.exception("Exception in text_to_speech: %s", e)
+        raise
 
 # TODO: Confirm with AIML API docs if audio is returned directly or via a follow-up request. 
