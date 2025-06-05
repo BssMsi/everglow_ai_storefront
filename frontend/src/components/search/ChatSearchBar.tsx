@@ -11,7 +11,7 @@ import {
   MessageSquare,
   Bot,
   User,
-} from "lucide-react";
+  Mic } from "lucide-react";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 
 interface Message {
@@ -116,10 +116,16 @@ export function ChatSearchBar({
       timestamp: new Date(),
     },
   ]);
+  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
+  const [isWsConnected, setIsWsConnected] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 48, // Increased minHeight for better proportions
-    maxHeight: 120,
+    maxHeight: 160, // Increased maxHeight for more input lines if needed
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -142,15 +148,14 @@ export function ChatSearchBar({
   }, [isExpanded]);
 
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (isExpanded && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, isExpanded]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => { // Made async
     if (!inputValue.trim()) return;
 
-    // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputValue,
@@ -159,24 +164,148 @@ export function ChatSearchBar({
     };
     
     setMessages(prev => [...prev, userMessage]);
+    const currentInput = inputValue; // Capture current input before clearing
     setInputValue("");
     adjustHeight(true);
     
-    // Simulate agent typing
     setIsTyping(true);
     
-    // Simulate agent response after delay
-    setTimeout(() => {
+    try {
+      // Replace with your backend API endpoint for text chat
+      const response = await fetch('/api/chat', { // Assuming backend is on the same host or proxied
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: currentInput, state_dict: messages }), // Send current input and history
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json(); // Expecting { response: "agent's text", state: { ... } }
+      
       const agentMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: `I found this information about "${inputValue}". Let me know if you need more details.`,
+        // Assuming backend returns { response: { response: "actual agent text" ... } ... }
+        // Or if english_agent directly returns { response: "text", state: {} }
+        // Adjust based on actual backend response structure for /api/chat
+        content: data.response.response || data.response, // Adjust based on actual backend response structure
         sender: "agent",
         timestamp: new Date(),
       };
       
       setMessages(prev => [...prev, agentMessage]);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: "Sorry, I couldn't connect to the assistant. Please try again later.",
+        sender: "agent",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 2000);
+    }
+  };
+
+  const handleVoiceSearch = () => {
+    if (isListening) {
+      // Stop listening
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+      if (websocket && websocket.readyState === WebSocket.OPEN) {
+        // Optionally send a signal that recording has stopped or rely on stream end
+      }
+      setIsListening(false);
+      // Websocket will be closed in onclose or onerror, or kept open if desired
+    } else {
+      // Start listening
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Your browser does not support audio recording.");
+        return;
+      }
+
+      const ws = new WebSocket('ws://localhost:8000/ws/voice-agent'); // Ensure this URL is correct
+      setWebsocket(ws);
+
+      ws.onopen = () => {
+        setIsWsConnected(true);
+        setIsListening(true);
+        console.log("WebSocket connection established for voice.");
+
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            mediaRecorderRef.current = new MediaRecorder(stream);
+            audioChunksRef.current = [];
+
+            mediaRecorderRef.current.ondataavailable = event => {
+              audioChunksRef.current.push(event.data);
+              if (ws.readyState === WebSocket.OPEN) {
+                ws.send(event.data);
+              }
+            };
+
+            mediaRecorderRef.current.onstop = () => {
+              // Stream is stopped, clean up
+              stream.getTracks().forEach(track => track.stop());
+              // The final audio chunk is sent via ondataavailable before onstop
+              // If ws is still open, you might send a final signal or close it
+              // For now, we assume the backend handles stream end gracefully
+              if (ws.readyState === WebSocket.OPEN) {
+                 // ws.close(); // Decide if to close here or let backend manage
+              }
+            };
+            
+            // Start recording, send data in chunks (e.g., every second)
+            mediaRecorderRef.current.start(1000); 
+          })
+          .catch(err => {
+            console.error("Error accessing microphone:", err);
+            setIsListening(false);
+            ws.close();
+          });
+      };
+
+      ws.onmessage = async (event) => {
+        // Assuming backend sends audio bytes (TTS response)
+        if (event.data instanceof Blob) {
+          const audioBlob = event.data;
+          const audioUrl = URL.createObjectURL(audioBlob);
+          const audio = new Audio(audioUrl);
+          audio.play();
+          // TODO: Optionally, if the backend also sends the transcript of TTS,
+          // add it to messages state.
+          // For now, we only play audio.
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        setIsWsConnected(false);
+        setIsListening(false);
+        // Add error message to chat
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          content: "Voice service connection error. Please try again.",
+          sender: "agent",
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      };
+
+      ws.onclose = () => {
+        console.log("WebSocket connection closed.");
+        setIsWsConnected(false);
+        setIsListening(false);
+        if (mediaRecorderRef.current && mediaRecorderRef.current.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+        }
+      };
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => { // Changed HTMLInputElement to HTMLTextAreaElement for onKeyDown
@@ -191,22 +320,22 @@ export function ChatSearchBar({
     .pop();
 
   return (
-    <div className="flex flex-col items-center w-full mt-8 mb-4"> {/* Adjusted mb for suggestions */}
-      <div className="w-full max-w-2xl" ref={containerRef}>
+    <div className="flex flex-col items-center w-full mt-8 mb-4 px-4"> {/* Added horizontal padding */} 
+      <div className="w-full max-w-3xl" ref={containerRef}> {/* Increased max-width for a wider search bar */} 
         <MotionConfig transition={transition}>
           <AnimatePresence mode="popLayout">
             {!isExpanded ? (
               <motion.div
                 key="search-bar-condensed"
                 layoutId="search-bar"
-                className="flex items-center bg-[var(--color-secondary)] rounded-full px-5 py-3.5 shadow-lg w-full cursor-text group focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50 transition-all duration-300 ease-in-out"
+                className="flex items-center bg-[var(--color-secondary)] rounded-full px-5 py-4 shadow-lg w-full cursor-text group focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50 transition-all duration-300 ease-in-out"
                 onClick={() => setIsExpanded(true)}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
               >
                 <Search className="h-5 w-5 text-gray-400 group-hover:text-gray-200 transition-colors" />
-                <span className="ml-3 text-gray-400 group-hover:text-gray-300 transition-colors truncate">
+                <span className="ml-4 text-gray-400 group-hover:text-gray-300 transition-colors truncate">
                   {placeholder}
                 </span>
               </motion.div>
@@ -221,13 +350,13 @@ export function ChatSearchBar({
               >
                 {/* Header of expanded view */}
                 <div className="flex items-center justify-between p-4 border-b border-[var(--color-accent-dark)]">
-                  <div className="flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-[var(--color-primary)]" />
-                    <span className="text-sm font-medium text-white">EcoSkin Assistant</span>
+                  <div className="flex items-center gap-3"> {/* Increased gap */}
+                    <Bot className="h-6 w-6 text-[var(--color-primary)]" /> {/* Slightly larger icon */}
+                    <span className="text-md font-medium text-white">EcoSkin Assistant</span> {/* Increased font size */}
                   </div>
                   <button 
                     onClick={() => setIsExpanded(false)} 
-                    className="p-1.5 rounded-full hover:bg-[var(--color-accent-dark)] transition-colors text-gray-400 hover:text-white"
+                    className="p-2 rounded-full hover:bg-[var(--color-accent-dark)] transition-colors text-gray-400 hover:text-white"
                     aria-label="Close chat"
                   >
                     <XIcon className="h-5 w-5" />
@@ -235,7 +364,7 @@ export function ChatSearchBar({
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-grow p-4 space-y-4 overflow-y-auto h-72 scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-[var(--color-secondary)]">
+                <div className="flex-grow p-4 space-y-4 overflow-y-auto h-96 scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-[var(--color-secondary)]"> {/* Increased h-72 to h-96 */}
                   {messages.map((msg) => (
                     <motion.div
                       key={msg.id}
@@ -246,7 +375,7 @@ export function ChatSearchBar({
                       className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div 
-                        className={`max-w-[75%] p-3 rounded-xl text-sm ${ 
+                        className={`max-w-[80%] p-3.5 rounded-xl text-sm shadow-md ${
                           msg.sender === "user" 
                             ? "bg-[var(--color-primary)] text-white rounded-br-none"
                             : "bg-[var(--color-background)] text-gray-200 rounded-bl-none border border-[var(--color-accent-dark)]"
@@ -262,8 +391,8 @@ export function ChatSearchBar({
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                       <div className="max-w-[75%] p-3 rounded-xl bg-[var(--color-background)] text-gray-200 rounded-bl-none border border-[var(--color-accent-dark)] flex items-center">
-                        <span className="mr-1 text-xs">EcoSkin is typing</span><TypingDots />
+                       <div className="max-w-[80%] p-3.5 rounded-xl bg-[var(--color-background)] text-gray-200 rounded-bl-none border border-[var(--color-accent-dark)] flex items-center shadow-md"> {/* Increased padding and max-width, added shadow */}
+                        <span className="mr-1.5 text-xs">EcoSkin is typing</span><TypingDots />
                        </div>
                     </motion.div>
                   )}
@@ -272,7 +401,7 @@ export function ChatSearchBar({
 
                 {/* Input Area */}
                 <div className="p-3 border-t border-[var(--color-accent-dark)] bg-[var(--color-secondary)]">
-                  <div className="flex items-end bg-[var(--color-background)] rounded-xl p-1.5 border border-[var(--color-accent-dark)] focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50">
+                  <div className="relative flex items-end bg-[var(--color-background)] rounded-xl p-1 border border-[var(--color-accent-dark)] focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50"> {/* Added relative positioning */}
                     <textarea
                       ref={textareaRef}
                       value={inputValue}
@@ -280,23 +409,47 @@ export function ChatSearchBar({
                         setInputValue(e.target.value);
                         adjustHeight();
                       }}
-                      onKeyDown={handleKeyDown} // Make sure this is attached to the textarea
-                      placeholder="Ask about vegan skincare..."
-                      className="flex-grow bg-transparent text-white placeholder-gray-500 focus:outline-none resize-none overflow-y-auto scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-transparent p-2 text-sm"
+                      onKeyDown={handleKeyDown}
+                      placeholder={placeholder}
+                      className="flex-1 bg-transparent text-foreground placeholder-foreground/60 resize-none overflow-y-auto focus:outline-none py-3 px-4 text-sm leading-tight pr-28" /* Increased pr for buttons */
                       rows={1}
+                      style={{ minHeight: `${textareaRef.current?.style.minHeight || 48}px` }}
                     />
-                    <button 
-                      onClick={handleSendMessage} 
-                      disabled={!inputValue.trim() || isTyping}
-                      className="p-2.5 rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)] focus-visible:ring-[var(--color-primary)] ml-2 self-end"
-                      aria-label="Send message"
-                    >
-                      {isTyping ? (
-                        <LoaderIcon className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <SendIcon className="h-4 w-4" />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1"> {/* Adjusted positioning and gap */}
+                      {inputValue && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setInputValue("");
+                            adjustHeight(true);
+                            textareaRef.current?.focus();
+                          }}
+                          className="p-1.5 text-foreground/60 hover:text-foreground transition-colors rounded-full"
+                          aria-label="Clear input"
+                        >
+                          <XIcon size={18} />
+                        </button>
                       )}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleVoiceSearch} // Voice search button
+                        className={`p-2 rounded-full transition-colors 
+                                      ${isListening ? 'bg-red-500 hover:bg-red-600 text-white' 
+                                                     : 'bg-transparent hover:bg-muted text-foreground/70 hover:text-foreground'}`}
+                        aria-label={isListening ? "Stop voice search" : "Start voice search"}
+                      >
+                        <Mic size={20} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSendMessage} // Text send button
+                        disabled={!inputValue.trim() || isTyping}
+                        className="p-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" /* Ensured text is white and added disabled cursor */
+                        aria-label="Send message"
+                      >
+                        <SendIcon size={20} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
