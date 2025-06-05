@@ -1,8 +1,20 @@
 fastapi
 uvicorn
-httpx=0.28.1
+httpx==0.28.1
 langchain==0.3.25
+langchain_community==0.3.24
 langgraph==0.4.8
+python-dotenv
+pandas
+openai==1.84.0
+sentence-transformers==4.1.0
+chromadb==1.0.12
+langchain-huggingface==0.2.0
+langchain-chroma==0.2.4
+langchain-openai==0.3.19
+openpyxl
+pinecone==7.0.2
+rapidfuzz
 # TODO: Add STT library (e.g., openai-whisper, google-cloud-speech, etc.)
 # TODO: Add TTS library (e.g., gtts, pyttsx3, etc.)
 # TODO: Add agent/LLM dependencies if needed 
