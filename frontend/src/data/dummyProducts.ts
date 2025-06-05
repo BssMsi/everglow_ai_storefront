@@ -11,7 +11,7 @@ export const dummyProducts: Product[] = [
     tags: ['vegan', 'glow', 'brightening', 'serum'],
     price: 45.00,
     margin: 0.6, // Higher margin
-    imageUrl: 'https://via.placeholder.com/300x300.png?text=Radiant+Glow+Serum',
+    imageUrl: 'https://picsum.photos/seed/picsum/200/350',
   },
   {
     id: '2',
@@ -22,7 +22,7 @@ export const dummyProducts: Product[] = [
     tags: ['vegan', 'hydration', 'moisturizer', 'daily'],
     price: 35.00,
     margin: 0.5,
-    imageUrl: 'https://via.placeholder.com/300x300.png?text=Pure+Hydration',
+    imageUrl: 'https://picsum.photos/seed/picsum/200/360',
   },
   {
     id: '3',
@@ -33,7 +33,7 @@ export const dummyProducts: Product[] = [
     tags: ['vegan', 'gentle', 'cleanser', 'foam'],
     price: 25.00,
     margin: 0.55,
-    imageUrl: 'https://via.placeholder.com/300x300.png?text=Gentle+Cleanser',
+    imageUrl: 'https://picsum.photos/seed/picsum/200/370',
   },
    {
     id: '4',
@@ -44,6 +44,6 @@ export const dummyProducts: Product[] = [
     tags: ['vegan', 'renewal', 'night cream', 'anti-aging'],
     price: 55.00,
     margin: 0.65, // Highest margin
-    imageUrl: 'https://via.placeholder.com/300x300.png?text=Renewal+Cream',
+    imageUrl: 'https://picsum.photos/seed/picsum/200/380',
   },
 ];

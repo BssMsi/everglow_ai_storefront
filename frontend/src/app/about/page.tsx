@@ -27,7 +27,7 @@ export default function AboutPage() {
           {/* Team Member 1 */}
           <div className="bg-white p-6 rounded-lg shadow-md text-center">
             <div className="relative w-32 h-32 mx-auto rounded-full overflow-hidden mb-4 border-2 border-pink-300">
-              <Image src="https://via.placeholder.com/150/FFC0CB/000000?Text=Jane+Doe" alt="Team Member Jane Doe" layout="fill" objectFit="cover" />
+              <Image src="https://picsum.photos/seed/picsum/200/300" alt="Team Member Jane Doe" fill style={{ objectFit: 'cover' }} />
             </div>
             <h3 className="text-xl font-semibold text-gray-800">Jane Doe</h3>
             <p className="text-pink-500">Founder & CEO</p>
@@ -39,7 +39,7 @@ export default function AboutPage() {
           {/* Team Member 2 */}
           <div className="bg-white p-6 rounded-lg shadow-md text-center">
             <div className="relative w-32 h-32 mx-auto rounded-full overflow-hidden mb-4 border-2 border-pink-300">
-              <Image src="https://via.placeholder.com/150/FFC0CB/000000?Text=John+Smith" alt="Team Member John Smith" layout="fill" objectFit="cover" />
+              <Image src="https://picsum.photos/seed/picsum/200/301" alt="Team Member John Smith" fill style={{ objectFit: 'cover' }} />
             </div>
             <h3 className="text-xl font-semibold text-gray-800">John Smith</h3>
             <p className="text-pink-500">Head of Product Development</p>
@@ -51,7 +51,7 @@ export default function AboutPage() {
           {/* Team Member 3 */}
           <div className="bg-white p-6 rounded-lg shadow-md text-center">
             <div className="relative w-32 h-32 mx-auto rounded-full overflow-hidden mb-4 border-2 border-pink-300">
-              <Image src="https://via.placeholder.com/150/FFC0CB/000000?Text=Alice+Green" alt="Team Member Alice Green" layout="fill" objectFit="cover" />
+              <Image src="https://picsum.photos/seed/picsum/200/302" alt="Team Member Alice Green" fill style={{ objectFit: 'cover' }} />
             </div>
             <h3 className="text-xl font-semibold text-gray-800">Alice Green</h3>
             <p className="text-pink-500">Marketing Director</p>

@@ -37,8 +37,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
             <Image
               src={product.imageUrl}
               alt={product.name}
-              layout="fill"
-              objectFit="cover"
+              fill
+              style={{ objectFit: 'cover' }}
               className="transition-transform duration-500 hover:scale-105"
             />
           )}
