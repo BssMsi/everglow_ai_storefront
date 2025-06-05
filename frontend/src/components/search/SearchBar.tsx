@@ -4,6 +4,9 @@
 import { useState } from 'react';
 import { Search, Mic, X, MessageSquare, PlusCircle } from 'lucide-react'; // Using lucide-react for icons
 
+// DEPRECATED: This component is replaced by ChatSearchBar.tsx for a modern, animated, adaptive UI.
+// Please use ChatSearchBar instead.
+
 const SearchBar = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');

@@ -7,10 +7,10 @@
 
 :root {
   /* Default Theme (Pink-ish) - these will be overridden by ThemeContext */
-  --color-primary: #EC4899; /* pink-500 */
-  --color-secondary: #FBCFE8; /* pink-200 */
-  --color-text: #374151; /* gray-700 */
-  --color-background: #F9FAFB; /* gray-50 */
+  --color-primary: #3B82F6; /* blue-500 */
+  --color-secondary: #1E293B; /* slate-800 */
+  --color-text: #FFFFFF; /* white */
+  --color-background: #0F172A; /* slate-900 */
   --font-family: 'Inter', sans-serif; /* Default font */
 }
 

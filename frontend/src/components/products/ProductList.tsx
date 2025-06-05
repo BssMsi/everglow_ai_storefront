@@ -32,14 +32,16 @@ const ProductList = ({ initialProducts }: ProductListProps) => {
   }
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-700 mb-6">Our Products</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+    <section className="w-full max-w-7xl mx-auto px-4 py-12">
+      <h2 className="text-3xl font-bold text-[var(--color-primary)] mb-8 text-center">Our Products</h2>
+      <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
         {sortedProducts.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <div key={product.id} className="min-w-[260px] max-w-[260px]">
+            <ProductCard product={product} />
+          </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 };
 
