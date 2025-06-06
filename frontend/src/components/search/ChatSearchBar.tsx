@@ -344,22 +344,22 @@ export function ChatSearchBar({
     .pop();
 
   return (
-    <div className="flex flex-col items-center w-full mt-8 mb-4 px-4"> {/* Added horizontal padding */} 
-      <div className="w-full max-w-3xl" ref={containerRef}> {/* Increased max-width for a wider search bar */} 
+    <div className="flex flex-col items-center w-full mt-8 mb-4 px-4">
+      <div className="w-full max-w-3xl" ref={containerRef}>
         <MotionConfig transition={transition}>
           <AnimatePresence mode="popLayout">
             {!isExpanded ? (
               <motion.div
                 key="search-bar-condensed"
                 layoutId="search-bar"
-                className="flex items-center bg-[var(--color-secondary)] rounded-full px-5 py-4 shadow-lg w-full cursor-text group focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50 transition-all duration-300 ease-in-out"
+                className="flex items-center bg-[var(--color-secondary)] rounded-full px-6 py-4 shadow-lg w-full cursor-text group focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50 transition-all duration-300 ease-in-out border border-[var(--color-accent-dark)]/30"
                 onClick={() => setIsExpanded(true)}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
               >
-                <Search className="h-5 w-5 text-gray-400 group-hover:text-gray-200 transition-colors" />
-                <span className="ml-4 text-gray-400 group-hover:text-gray-300 transition-colors truncate">
+                <Search className="h-5 w-5 text-[var(--color-primary)] group-hover:text-[var(--color-primary)]/80 transition-colors" />
+                <span className="ml-4 text-[var(--color-foreground)]/70 group-hover:text-[var(--color-foreground)]/90 transition-colors truncate font-medium">
                   {placeholder}
                 </span>
               </motion.div>
@@ -367,20 +367,20 @@ export function ChatSearchBar({
               <motion.div
                 key="search-bar-expanded"
                 layoutId="search-bar"
-                className="flex flex-col bg-[var(--color-secondary)] rounded-2xl shadow-2xl w-full overflow-hidden border border-[var(--color-accent-dark)]"
+                className="flex flex-col bg-[var(--color-secondary)] rounded-2xl shadow-2xl w-full overflow-hidden border border-[var(--color-accent-dark)]/50"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
               >
                 {/* Header of expanded view */}
-                <div className="flex items-center justify-between p-4 border-b border-[var(--color-accent-dark)]">
-                  <div className="flex items-center gap-3"> {/* Increased gap */}
-                    <Bot className="h-6 w-6 text-[var(--color-primary)]" /> {/* Slightly larger icon */}
-                    <span className="text-md font-medium text-white">EcoSkin Assistant</span> {/* Increased font size */}
+                <div className="flex items-center justify-between p-4 border-b border-[var(--color-accent-dark)]/30 bg-[var(--color-secondary)]">
+                  <div className="flex items-center gap-3">
+                    <Bot className="h-6 w-6 text-[var(--color-primary)]" />
+                    <span className="text-lg font-semibold text-[var(--color-foreground)]">EverGlow Labs Assistant</span>
                   </div>
                   <button 
                     onClick={() => setIsExpanded(false)} 
-                    className="p-2 rounded-full hover:bg-[var(--color-accent-dark)] transition-colors text-gray-400 hover:text-white"
+                    className="p-2 rounded-full hover:bg-[var(--color-accent-dark)]/30 transition-colors text-[var(--color-foreground)]/60 hover:text-[var(--color-foreground)]"
                     aria-label="Close chat"
                   >
                     <XIcon className="h-5 w-5" />
@@ -388,7 +388,7 @@ export function ChatSearchBar({
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-grow p-4 space-y-4 overflow-y-auto h-96 scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-[var(--color-secondary)]"> {/* Increased h-72 to h-96 */}
+                <div className="flex-grow p-4 space-y-4 overflow-y-auto h-96 bg-[var(--color-background)] scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-transparent">
                   {messages.map((msg) => (
                     <motion.div
                       key={msg.id}
@@ -399,10 +399,10 @@ export function ChatSearchBar({
                       className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div 
-                        className={`max-w-[80%] p-3.5 rounded-xl text-sm shadow-md ${
+                        className={`max-w-[80%] p-4 rounded-xl text-sm shadow-md ${
                           msg.sender === "user" 
-                            ? "bg-[var(--color-primary)] text-white rounded-br-none"
-                            : "bg-[var(--color-background)] text-gray-200 rounded-bl-none border border-[var(--color-accent-dark)]"
+                            ? "bg-[var(--color-primary)] text-white rounded-br-md"
+                            : "bg-[var(--color-secondary)] text-[var(--color-foreground)] rounded-bl-md border border-[var(--color-accent-dark)]/30"
                         }`}
                       >
                         {msg.content}
@@ -415,8 +415,8 @@ export function ChatSearchBar({
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                       <div className="max-w-[80%] p-3.5 rounded-xl bg-[var(--color-background)] text-gray-200 rounded-bl-none border border-[var(--color-accent-dark)] flex items-center shadow-md"> {/* Increased padding and max-width, added shadow */}
-                        <span className="mr-1.5 text-xs">EcoSkin is typing</span><TypingDots />
+                       <div className="max-w-[80%] p-4 rounded-xl bg-[var(--color-secondary)] text-[var(--color-foreground)] rounded-bl-md border border-[var(--color-accent-dark)]/30 flex items-center shadow-md">
+                        <span className="mr-2 text-sm">EverGlow Labs is typing</span><TypingDots />
                        </div>
                     </motion.div>
                   )}
@@ -424,8 +424,8 @@ export function ChatSearchBar({
                 </div>
 
                 {/* Input Area */}
-                <div className="p-3 border-t border-[var(--color-accent-dark)] bg-[var(--color-secondary)]">
-                  <div className="relative flex items-end bg-[var(--color-background)] rounded-xl p-1 border border-[var(--color-accent-dark)] focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50"> {/* Added relative positioning */}
+                <div className="p-4 border-t border-[var(--color-accent-dark)]/30 bg-[var(--color-secondary)]">
+                  <div className="relative flex items-end bg-[var(--color-background)] rounded-xl border border-[var(--color-accent-dark)]/30 focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50 focus-within:border-[var(--color-primary)]/50">
                     <textarea
                       ref={textareaRef}
                       value={inputValue}
@@ -435,11 +435,11 @@ export function ChatSearchBar({
                       }}
                       onKeyDown={handleKeyDown}
                       placeholder={placeholder}
-                      className="flex-1 bg-transparent text-foreground placeholder-foreground/60 resize-none overflow-y-auto focus:outline-none py-3 px-4 text-sm leading-tight pr-28" /* Increased pr for buttons */
+                      className="flex-1 bg-transparent text-[var(--color-foreground)] placeholder-[var(--color-foreground)]/50 resize-none overflow-y-auto focus:outline-none py-4 px-4 text-sm leading-relaxed pr-32"
                       rows={1}
                       style={{ minHeight: `${textareaRef.current?.style.minHeight || 48}px` }}
                     />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1"> {/* Adjusted positioning and gap */}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                       {inputValue && (
                         <button
                           type="button"
@@ -448,30 +448,32 @@ export function ChatSearchBar({
                             adjustHeight(true);
                             textareaRef.current?.focus();
                           }}
-                          className="p-1.5 text-foreground/60 hover:text-foreground transition-colors rounded-full"
+                          className="p-2 text-[var(--color-foreground)]/50 hover:text-[var(--color-foreground)] transition-colors rounded-full hover:bg-[var(--color-accent-dark)]/20"
                           aria-label="Clear input"
                         >
-                          <XIcon size={18} />
+                          <XIcon size={16} />
                         </button>
                       )}
                       <button
                         type="button"
-                        onClick={handleVoiceSearch} // Voice search button
-                        className={`p-2 rounded-full transition-colors 
-                                      ${isListening ? 'bg-red-500 hover:bg-red-600 text-white' 
-                                                     : 'bg-transparent hover:bg-muted text-foreground/70 hover:text-foreground'}`}
+                        onClick={handleVoiceSearch}
+                        className={`p-2 rounded-full transition-all duration-200 ${
+                          isListening 
+                            ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg' 
+                            : 'bg-[var(--color-accent-dark)]/20 hover:bg-[var(--color-accent-dark)]/30 text-[var(--color-foreground)]/70 hover:text-[var(--color-foreground)]'
+                        }`}
                         aria-label={isListening ? "Stop voice search" : "Start voice search"}
                       >
-                        <Mic size={20} />
+                        <Mic size={18} />
                       </button>
                       <button
                         type="button"
-                        onClick={handleSendMessage} // Text send button
+                        onClick={handleSendMessage}
                         disabled={!inputValue.trim() || isTyping}
-                        className="p-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" /* Ensured text is white and added disabled cursor */
+                        className="p-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
                         aria-label="Send message"
                       >
-                        <SendIcon size={20} />
+                        <SendIcon size={18} />
                       </button>
                     </div>
                   </div>

@@ -5,45 +5,65 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { CustomerProfile, ThemeSettings } from '@/types/profile';
 
 const defaultThemeSettings: ThemeSettings = {
-  colorScheme: 'dark', // Change default to dark to match the image
-  fontFamily: "'Inter', sans-serif", // Default font from layout
+  colorScheme: 'dark',
+  fontFamily: "'Inter', sans-serif",
 };
 
-// Define CSS variables for themes
+// Define CSS variables for themes with all needed variables including logo color
 const themes: Record<CustomerProfile['preferredColorScheme'], Record<string, string>> = {
   default: {
-    '--color-primary': '#EC4899', // Pink-500 (example)
-    '--color-secondary': '#D1D5DB', // Gray-300
-    '--color-text': '#1F2937', // Gray-800
-    '--color-background': '#FFFFFF', // White
+    '--color-primary': '#EC4899',
+    '--color-secondary': '#D1D5DB',
+    '--color-text': '#1F2937',
+    '--color-background': '#FFFFFF',
+    '--color-accent-dark': '#9CA3AF',
+    '--color-foreground': '#1F2937',
+    '--color-muted': '#F3F4F6',
+    '--color-logo': '#EC4899', // Logo color matches primary
     '--font-family': "'Inter', sans-serif",
   },
-  dark: { // Add dark theme to match the image
-    '--color-primary': '#3B82F6', // Blue-500
-    '--color-secondary': '#1E293B', // Slate-800
-    '--color-text': '#FFFFFF', // White
-    '--color-background': '#0F172A', // Slate-900
+  dark: {
+    '--color-primary': '#3B82F6',
+    '--color-secondary': '#1E293B',
+    '--color-text': '#FFFFFF',
+    '--color-background': '#0F172A',
+    '--color-accent-dark': '#334155',
+    '--color-foreground': '#F8FAFC',
+    '--color-muted': '#475569',
+    '--color-logo': '#3B82F6', // Blue logo for dark theme
     '--font-family': "'Inter', sans-serif",
   },
   rose: {
-    '--color-primary': '#F43F5E', // Rose-500
-    '--color-secondary': '#FECDD3', // Rose-200
-    '--color-text': '#881337', // Rose-900
-    '--color-background': '#FFF1F2', // Rose-50
-    '--font-family': "'Inter', sans-serif", // Default font, can be overridden by font preference
+    '--color-primary': '#F43F5E',
+    '--color-secondary': '#FECDD3',
+    '--color-text': '#881337',
+    '--color-background': '#FFF1F2',
+    '--color-accent-dark': '#FB7185',
+    '--color-foreground': '#881337',
+    '--color-muted': '#FDF2F8',
+    '--color-logo': '#F43F5E', // Rose logo
+    '--font-family': "'Inter', sans-serif",
   },
   teal: {
-    '--color-primary': '#14B8A6', // Teal-500
-    '--color-secondary': '#99F6E4', // Teal-200
-    '--color-text': '#0F766E', // Teal-700
-    '--color-background': '#F0FDFA', // Teal-50
+    '--color-primary': '#14B8A6',
+    '--color-secondary': '#99F6E4',
+    '--color-text': '#0F766E',
+    '--color-background': '#F0FDFA',
+    '--color-accent-dark': '#5EEAD4',
+    '--color-foreground': '#0F766E',
+    '--color-muted': '#CCFBF1',
+    '--color-logo': '#14B8A6', // Teal logo
     '--font-family': "'Inter', sans-serif",
   },
   lavender: {
-    '--color-primary': '#8B5CF6', // Violet-500
-    '--color-secondary': '#DDD6FE', // Violet-200
-    '--color-text': '#5B21B6', // Violet-700
-    '--color-background': '#F5F3FF', // Violet-50
+    '--color-primary': '#8B5CF6',
+    '--color-secondary': '#DDD6FE',
+    '--color-text': '#5B21B6',
+    '--color-background': '#F5F3FF',
+    '--color-accent-dark': '#C4B5FD',
+    '--color-foreground': '#5B21B6',
+    '--color-muted': '#EDE9FE',
+    '--color-logo': '#8B5CF6', // Lavender logo
     '--font-family': "'Inter', sans-serif",
   }
 };
