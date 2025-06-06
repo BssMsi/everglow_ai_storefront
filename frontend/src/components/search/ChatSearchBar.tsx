@@ -13,6 +13,7 @@ import {
   User,
   Mic } from "lucide-react";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
+import { Product } from "@/types/product";
 
 interface Message {
   id: string;
@@ -20,10 +21,10 @@ interface Message {
   sender: "user" | "agent";
   timestamp: Date;
 }
-
 interface ChatSearchBarProps {
   placeholder?: string;
   onSearch?: (value: string) => void;
+  onProductsFound?: (products: Product[]) => void;
 }
 
 interface UseAutoResizeTextareaProps {
@@ -104,6 +105,7 @@ function TypingDots() {
 export function ChatSearchBar({
   placeholder = "Search or ask a question...",
   onSearch,
+  onProductsFound,
 }: ChatSearchBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -191,12 +193,34 @@ export function ChatSearchBar({
         // Assuming backend returns { response: { response: "actual agent text" ... } ... }
         // Or if english_agent directly returns { response: "text", state: {} }
         // Adjust based on actual backend response structure for /api/chat
-        content: data.response.response || data.response, // Adjust based on actual backend response structure
+        content: data.ai_message,
         sender: "agent",
         timestamp: new Date(),
       };
       
       setMessages(prev => [...prev, agentMessage]);
+
+      if (data.product_ids && data.product_ids.length > 0){
+        // Get request to the backend endpoint to retrieve product details based on the list of product_ids
+        // Update the Product List on the UI
+        try {
+          // Using URLSearchParams (cleaner approach)
+          const params = new URLSearchParams();
+          data.product_ids.forEach((id: string) => params.append('ids', id));
+          const productResponse = await fetch(`/api/products?${params.toString()}`);
+          
+          if (!productResponse.ok) {
+            throw new Error(`HTTP error fetching products! status: ${productResponse.status}`);
+          }
+          const productsData: Product[] = await productResponse.json();
+          if (onProductsFound) {
+            onProductsFound(productsData);
+            console.log("Products found and sent to ChatSearchBar.", productsData);
+          }
+        } catch (productError) {
+          console.error("Failed to fetch product details:", productError);
+        }
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
       const errorMessage: Message = {

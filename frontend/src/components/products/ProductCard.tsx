@@ -7,7 +7,7 @@ import Link from 'next/link';
 const ProductCard = ({ product }: { product: Product }) => {
   return (
     <div className="group border border-[var(--color-secondary)] rounded-xl shadow-lg hover:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.2)] transition-all duration-300 overflow-hidden bg-[var(--color-secondary)] hover:scale-[1.02] transform-gpu cursor-pointer flex flex-col h-full">
-      <Link href={`/products/${product.id}`} className="block flex flex-col h-full">
+      <Link href={`/products/${product.product_id}`} className="block flex flex-col h-full">
         <div className="relative w-full h-48 sm:h-52 cursor-pointer bg-[var(--color-background)] overflow-hidden">
           {product.imageUrl && (
             <Image
@@ -24,7 +24,7 @@ const ProductCard = ({ product }: { product: Product }) => {
             {product.name}
           </h3>
           <p className="text-xs text-gray-400 mb-1 capitalize">{product.category}</p>
-          <p className="text-white font-bold text-lg mb-2.5">${product.price.toFixed(2)}</p>
+          <p className="text-white font-bold text-lg mb-2.5">${product.priceusd?.toFixed(2)}</p>
           <div className="mt-auto pt-2">
             <button className="w-full px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium shadow-md hover:bg-opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-secondary)] transition-all duration-200">
               View Details
