@@ -1,16 +1,12 @@
-// frontend/src/components/products/ProductCard.tsx
 import { Product } from '@/types/product';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-// Modern, adaptive, interactive product card with image carousel
 const ProductCard = ({ product }: { product: Product }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // Generate image paths based on the directory structure
-  // Each product has 2 images with these common patterns
   const getProductImages = (productId: string): string[] => {
     const baseImageSets = [
       [
@@ -27,8 +23,6 @@ const ProductCard = ({ product }: { product: Product }) => {
       ]
     ];
     
-    // For demo purposes, we'll cycle through the image sets
-    // In a real app, you'd have a mapping or API to determine which images belong to which product
     const setIndex = productId.charCodeAt(productId.length - 1) % baseImageSets.length;
     const imageSet = baseImageSets[setIndex];
     
@@ -60,44 +54,42 @@ const ProductCard = ({ product }: { product: Product }) => {
   };
 
   return (
-    <div className="group border border-[var(--color-secondary)] rounded-xl shadow-lg hover:shadow-[0_10px_30px_-15px_rgba(0,0,0,0.2)] transition-all duration-300 overflow-hidden bg-[var(--color-secondary)] hover:scale-[1.02] transform-gpu cursor-pointer flex flex-col h-full">
-      <Link href={`/products/${product.product_id}`} className="block flex flex-col h-full">
-        <div className="relative w-full h-48 sm:h-52 cursor-pointer bg-[var(--color-background)] overflow-hidden">
+    <div className="group bg-[var(--color-secondary)]/30 rounded-2xl overflow-hidden hover:bg-[var(--color-secondary)]/40 transition-all duration-300 cursor-pointer">
+      <Link href={`/products/${product.product_id}`} className="block">
+        {/* Image Section - Top */}
+        <div className="relative w-full aspect-square bg-gradient-to-br from-[var(--color-background)] to-[var(--color-secondary)]/20 overflow-hidden">
           <Image
             src={productImages[currentImageIndex]}
             alt={`${product.name} - Image ${currentImageIndex + 1}`}
             fill
             style={{ objectFit: 'cover' }}
-            className="transition-transform duration-300 group-hover:scale-105"
+            className="transition-transform duration-500 group-hover:scale-105"
             onError={(e) => {
-              // Fallback to original imageUrl if the generated path fails
               if (product.imageUrl) {
                 (e.target as HTMLImageElement).src = product.imageUrl;
               }
             }}
           />
           
-          {/* Carousel Controls - Only show if more than 1 image */}
+          {/* Carousel Controls */}
           {productImages.length > 1 && (
             <>
-              {/* Navigation Arrows */}
               <button
                 onClick={prevImage}
-                className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
                 aria-label="Previous image"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={nextImage}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
                 aria-label="Next image"
               >
                 <ChevronRight size={16} />
               </button>
               
-              {/* Dot Indicators */}
-              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                 {productImages.map((_, index) => (
                   <button
                     key={index}
@@ -105,7 +97,7 @@ const ProductCard = ({ product }: { product: Product }) => {
                     className={`w-2 h-2 rounded-full transition-colors duration-200 ${
                       index === currentImageIndex 
                         ? 'bg-white' 
-                        : 'bg-white/50 hover:bg-white/75'
+                        : 'bg-white/40 hover:bg-white/70'
                     }`}
                     aria-label={`Go to image ${index + 1}`}
                   />
@@ -115,17 +107,17 @@ const ProductCard = ({ product }: { product: Product }) => {
           )}
         </div>
         
-        <div className="p-4 flex flex-col gap-1.5 flex-grow">
-          <h3 className="text-md font-semibold text-[var(--color-primary)] mb-0.5 truncate group-hover:text-white transition-colors">
+        {/* Details Section - Bottom */}
+        <div className="p-4 space-y-2">
+          <h3 className="font-medium text-[var(--color-foreground)] text-sm leading-tight line-clamp-2">
             {product.name}
           </h3>
-          <p className="text-xs text-gray-400 mb-1 capitalize">{product.category}</p>
-          <p className="text-white font-bold text-lg mb-2.5">${product.priceusd?.toFixed(2)}</p>
-          <div className="mt-auto pt-2">
-            <button className="w-full px-4 py-2 rounded-lg bg-[var(--color-primary)] text-white text-sm font-medium shadow-md hover:bg-opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-secondary)] transition-all duration-200">
-              View Details
-            </button>
-          </div>
+          <p className="text-[var(--color-foreground)]/60 text-xs capitalize">
+            {product.category}
+          </p>
+          <p className="text-[var(--color-foreground)] font-semibold text-sm">
+            ${product.priceusd?.toFixed(2)}
+          </p>
         </div>
       </Link>
     </div>

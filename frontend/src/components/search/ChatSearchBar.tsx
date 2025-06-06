@@ -14,6 +14,8 @@ import {
   Mic } from "lucide-react";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { Product } from "@/types/product";
+import { useTheme } from '@/context/ThemeContext';
+import { changeTheme } from '@/utils/themeUtils';
 
 interface Message {
   id: string;
@@ -124,6 +126,9 @@ export function ChatSearchBar({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  // Add theme hook
+  const { setThemeSettings } = useTheme();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const { textareaRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 48, // Increased minHeight for better proportions
@@ -216,6 +221,17 @@ export function ChatSearchBar({
           if (onProductsFound) {
             onProductsFound(productsData);
             console.log("Products found and sent to ChatSearchBar.", productsData);
+          }
+
+          // Theme change logic: Check if theme is returned, otherwise use random theme
+          if (data.theme) {
+            // If backend returns a specific theme, use it
+            changeTheme(data.theme, setThemeSettings);
+            console.log(`Theme set from backend: ${data.theme}`);
+          } else {
+            // If no theme is returned, change to a random theme
+            changeTheme(null, setThemeSettings);
+            console.log('No theme returned from backend, switching to random theme');
           }
         } catch (productError) {
           console.error("Failed to fetch product details:", productError);

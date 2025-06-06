@@ -14,15 +14,20 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text)]">
-      <div className="flex flex-col items-center w-full px-4 pt-10 pb-6 md:px-6">
-        <ChatSearchBar 
-          placeholder="What's the best vegan moisturizer for dry skin?" 
-          onProductsFound={handleProductsFound}
-        />
+    <div className="min-h-screen bg-[var(--color-background)]">
+      {/* Search Section */}
+      <div className="flex flex-col items-center w-full px-6 pt-8 pb-12">
+        <div className="w-full max-w-2xl">
+          <ChatSearchBar 
+            placeholder="What's the best vegan moisturizer for dry skin?" 
+            onProductsFound={handleProductsFound}
+          />
+        </div>
       </div>
-      <section id="products" className="py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      {/* Products Section */}
+      <section className="pb-12">
+        <div className="max-w-7xl mx-auto px-6">
           <ProductList products={products} />
         </div>
       </section>

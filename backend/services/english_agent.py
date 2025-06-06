@@ -370,23 +370,11 @@ def recommendation_agent(state: AgentState, user_input: str, entities: Dict[str,
 
     # Filter by tags (using $in for list matching)
     if entities.get("skin_concerns"):
-        # Assuming entities["tags"] is already a list of strings from NER or state
-        if isinstance(entities["tags"], str):
-            # If somehow it's a string, try to split (though NER should ideally return list/handle this)
-            tags_list = [t.strip().lower() for t in entities["tags"].split(',') if t.strip()]
-        elif isinstance(entities["tags"], list):
-            tags_list = [str(t).strip().lower() for t in entities["tags"] if t is not None and str(t).strip()]
-        else:
-            tags_list = []
-            logger.warning(f"Recommendation Agent: Unexpected type for tags entity: {type(entities['tags'])} Expected list or string.")
-
-        if tags_list:
-            metadata_filter["tags"] = {"$in": tags_list}
-            logger.debug(f"Recommendation Agent: Adding tags filter: {metadata_filter['tags']}")
-    # TODO: Add more filters (e.g., price range) if needed, ensuring they match Pinecone filter syntax and metadata types.
+        metadata_filter["tags"] = {"$in": list(map(str.lower, entities["skin_concerns"]))}
+        logger.debug(f"Recommendation Agent: Adding tags filter: {metadata_filter['tags']}")
 
     if entities.get('ingredients'):
-        metadata_filter["top_ingredients"] = {"$in": entities.get('ingredients')}
+        metadata_filter["top_ingredients"] = {"$in": list(map(str.lower, entities["ingredients"]))}
         logger.debug(f"Recommendation Agent: Adding ingredients filter: {metadata_filter['ingredients']}")
 
     logger.info(f"Recommendation Agent: Performing Pinecone similarity search with filter: {metadata_filter}")
@@ -491,7 +479,6 @@ def reviews_explanation_agent(state: AgentState, user_input: str) -> (str, Agent
             input_variables=["user_input"],
             template=extraction_prompt_template
         )
-        import json
         extracted_product_name = None
         try:
             logger.debug(f"Reviews Explanation Agent: Product extraction prompt input: {extraction_prompt.format(user_input=user_input)}")
@@ -627,7 +614,7 @@ def reviews_explanation_agent(state: AgentState, user_input: str) -> (str, Agent
                 user_question=user_question,
                 feedback_context=feedback_context
             )
-        }).strip()
+        })
         logger.info("Reviews Explanation Agent: Generated review explanation.")
     except Exception as e:
         logger.exception(f"Error generating review explanation: {e}")
@@ -641,7 +628,7 @@ def reviews_explanation_agent(state: AgentState, user_input: str) -> (str, Agent
     # The response is added to history below in the main english_agent if no top-level error
     logger.info("Reviews Explanation Agent: Finished.")
     # Ensure consistent return type (dict)
-    return {"response": response}, state # Return success with response
+    return {"response": response.content}, state # Return success with response
 
 # --- Brand Answer Generator (Placeholder - Does not use RAG yet) ---
 # TODO: Potentially add RAG for brand information if it's stored in a vector store.
@@ -652,7 +639,7 @@ def brand_answer_agent(state: AgentState, user_input: str) -> (str, AgentState):
     """
     logger.info("Brand Answer Agent: Started.")
     try:
-        response = brand_llm.invoke({"input": user_input}).strip()
+        response = brand_llm.invoke({"input": user_input})
         logger.info("Brand Answer Agent: Generated brand answer.")
     except Exception as e:
         logger.exception(f"Error generating brand answer: {e}")
@@ -666,7 +653,7 @@ def brand_answer_agent(state: AgentState, user_input: str) -> (str, AgentState):
     # The response is added to history below in the main english_agent if no top-level error
     logger.info("Brand Answer Agent: Finished.")
     # Ensure consistent return type (dict)
-    return {"response": response}, state # Return success with response
+    return {"response": response.content}, state # Return success with response
 
 # --- LLM-based Intent Detection and Routing ---
 def llm_intent_router(state: AgentState, user_input: str) -> (str, AgentState):

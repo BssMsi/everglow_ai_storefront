@@ -9,7 +9,7 @@ const defaultThemeSettings: ThemeSettings = {
   fontFamily: "'Inter', sans-serif",
 };
 
-// Define CSS variables for themes with all needed variables including logo color
+// Define CSS variables for themes with profile color
 const themes: Record<CustomerProfile['preferredColorScheme'], Record<string, string>> = {
   default: {
     '--color-primary': '#EC4899',
@@ -19,7 +19,8 @@ const themes: Record<CustomerProfile['preferredColorScheme'], Record<string, str
     '--color-accent-dark': '#9CA3AF',
     '--color-foreground': '#1F2937',
     '--color-muted': '#F3F4F6',
-    '--color-logo': '#EC4899', // Logo color matches primary
+    '--color-logo': '#EC4899',
+    '--color-profile': '#6B7280', // Gray profile icon for light theme
     '--font-family': "'Inter', sans-serif",
   },
   dark: {
@@ -30,7 +31,8 @@ const themes: Record<CustomerProfile['preferredColorScheme'], Record<string, str
     '--color-accent-dark': '#334155',
     '--color-foreground': '#F8FAFC',
     '--color-muted': '#475569',
-    '--color-logo': '#3B82F6', // Blue logo for dark theme
+    '--color-logo': '#3B82F6',
+    '--color-profile': '#94A3B8', // Light gray profile icon for dark theme
     '--font-family': "'Inter', sans-serif",
   },
   rose: {
@@ -41,7 +43,8 @@ const themes: Record<CustomerProfile['preferredColorScheme'], Record<string, str
     '--color-accent-dark': '#FB7185',
     '--color-foreground': '#881337',
     '--color-muted': '#FDF2F8',
-    '--color-logo': '#F43F5E', // Rose logo
+    '--color-logo': '#F43F5E',
+    '--color-profile': '#BE185D', // Rose-tinted profile icon
     '--font-family': "'Inter', sans-serif",
   },
   teal: {
@@ -52,7 +55,8 @@ const themes: Record<CustomerProfile['preferredColorScheme'], Record<string, str
     '--color-accent-dark': '#5EEAD4',
     '--color-foreground': '#0F766E',
     '--color-muted': '#CCFBF1',
-    '--color-logo': '#14B8A6', // Teal logo
+    '--color-logo': '#14B8A6',
+    '--color-profile': '#0D9488', // Teal profile icon
     '--font-family': "'Inter', sans-serif",
   },
   lavender: {
@@ -63,7 +67,8 @@ const themes: Record<CustomerProfile['preferredColorScheme'], Record<string, str
     '--color-accent-dark': '#C4B5FD',
     '--color-foreground': '#5B21B6',
     '--color-muted': '#EDE9FE',
-    '--color-logo': '#8B5CF6', // Lavender logo
+    '--color-logo': '#8B5CF6',
+    '--color-profile': '#7C3AED', // Lavender profile icon
     '--font-family': "'Inter', sans-serif",
   }
 };
