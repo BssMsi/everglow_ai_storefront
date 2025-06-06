@@ -48,10 +48,6 @@ def make_documents(df):
     """
     docs = []
     for _, row in df.iterrows():
-        # --- Normalize tags ---
-        raw_tags = str(row.get('tags', ''))
-        tag_list = [t.strip().lower() for t in raw_tags.split('|') if t.strip()] if raw_tags else []
-        tags_text = ', '.join(tag_list)
         # --- Build document text ---
         text = (
             f"Product ID: {row.get('product_id', '')}\n"
@@ -59,14 +55,15 @@ def make_documents(df):
             f"Category: {row.get('category', '')}\n"
             f"Description: {row.get('description', '')}\n"
             f"Top Ingredients: {row.get('top_ingredients', '')}\n"
-            f"Tags: {tags_text}\n"
+            f"Tags: {row.get('tags', '')}\n"
             f"Price (USD): {row.get('price (USD)', '')}\n"
             f"Margin (%): {row.get('margin (%)', '')}"
         )
-        # --- Store all columns as metadata, but tags as a comma-separated string ---
+        # --- Lowercase and Store all metadata ---
         metadata = {k: row[k] for k in row.index}
-        metadata['tags'] = tag_list  # Store as list for Pinecone
-        metadata['category'] = str(row.get('category', '')).strip()  # Ensure category is a string
+        metadata['tags'] = [t.strip().lower() for t in row.get('tags', '').split('|') if t.strip()] if row.get('tags', '') else []
+        metadata['top_ingredients'] = [t.strip().lower() for t in row.get('top_ingredients', '').split('; ') if t.strip()] if row.get('top_ingredients', '') else []
+        metadata['category'] = row.get('category', '').strip().lower()  # Ensure category is a string
         # Ensure all metadata values are primitives
         for k, v in metadata.items():
             if isinstance(v, (dict, set)):
