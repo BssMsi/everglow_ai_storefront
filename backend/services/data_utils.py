@@ -34,10 +34,10 @@ def get_catalog_categories_and_skin_concerns_from_source():
         if df is None or df.empty:
             df = pd.read_excel(CATALOG_PATH).dropna()
         # Convert all values to strings and remove whitespace, then get uniques
-        categories = set(str(p).strip() for p in df["category"].dropna().unique())
+        categories = set(str(p).strip().lower() for p in df["category"].dropna().unique())
         skin_concerns = set()
         for tags_str in df["tags"].dropna().unique():
-            tag_list = [t.strip() for t in str(tags_str).split('|') if t.strip()]
+            tag_list = [t.strip().lower() for t in str(tags_str).split('|') if t.strip()]
             skin_concerns.update(tag_list)
         ingredients = set()
         for ingredient in df['top_ingredients'].str.split('; ').explode().unique():

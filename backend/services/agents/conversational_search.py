@@ -80,7 +80,7 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
     # 3. If enough info, hand off to Recommendation Agent
     # For now, let's hand off if we have at least a category and the intent is recommend
     # NOTE: The router sets the intent. The conversational agent acts ON that intent.
-    ready_for_recommendation = entities.get("categories", []) and state.intent == "recommend"
+    ready_for_recommendation = entities.get("categories", [])
 
     if ready_for_recommendation:
         logger.info("Conversational Search Agent: Ready for recommendation. Calling recommendation_agent.")

@@ -17,7 +17,7 @@ def make_agent_llm(system_prompt_template_str: str,
     return prompt | llm
 
 # System prompts for each agent
-CONVERSATIONAL_SEARCH_SYSTEM_PROMPT_TEMPLATE = """You are a skincare expert. Your task is to perform Named Entity Recognition (NER) to identify and manage lists for 'product_categories', 'product_ingredients', and 'skin_concerns'.Add commentMore actions
+CONVERSATIONAL_SEARCH_SYSTEM_PROMPT_TEMPLATE = """You are a skincare expert. Your task is to perform Named Entity Recognition (NER) to identify and manage lists for 'categories', 'ingredients', and 'skin_concerns'.
 You will be given the user's latest query, the currently identified entities, and the chat history.
 
 Available categories: {available_categories}
@@ -38,12 +38,13 @@ Instructions for updating entities:
 5.  **Output Format**: Respond ONLY in JSON format with the *final, updated lists* for all three entities:
     `{{{{"categories": [<updated_list_of_categories>], "ingredients": [<updated_list_of_ingredients>], "skin_concerns": [<updated_list_of_skin_concerns>]}}}}`
 
-Example of intent processing (assuming current entities are passed to you):
+Example of intent processing (assuming current entities are passed to you) in sequence:
 - User query: "I'm looking for hair mask." (Current entities: `{{{{"categories": [], ...}}}}`) -> Output: `{{{{"categories": ["hair mask"], ...}}}}`
 - User query: "Also add serums." (Current entities: `{{{{"categories": ["hair mask"], ...}}}}`) -> Output: `{{{{"categories": ["hair mask", "serum"], ...}}}}`
 - User query: "Remove serums." (Current entities: `{{{{"categories": ["hair mask", "serum"], ...}}}}`) -> Output: `{{{{"categories": ["hair mask"], ...}}}}`
-- User query: "Actually, just show me moisturizers." (Current entities: `{{{{"categories": ["hair mask", "serum"], ...}}}}`) -> Output: `{{{{"categories": ["cream / moisturizer"], ...}}}}`
-
+- User query: "Show me anything" (Current entities: `{{{{"categories": ["hair mask"], ...}}}}`) -> Output: `{{{{"categories": [{available_categories}], ...}}}}`
+- User query: "Actually, just show me moisturizers." (Current entities: `{{{{"categories": [{available_categories}], ...}}}}`) -> Output: `{{{{"categories": ["cream / moisturizer"], ...}}}}`
+- User query: "All" (Current entities: `{{{{"categories": ["cream / moisturizer"], ...}}}}`) -> Output: `{{{{"categories": [{available_categories}], ...}}}}`
 Maintain high confidence for extraction.
 """
 

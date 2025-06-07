@@ -175,6 +175,10 @@ routing
 - Pinecone indexes are optimized for fast similarity search
 - Singleton patterns used for expensive resources (embeddings, Pinecone client)
 - Async operations for STT/TTS to prevent blocking
+## Issues
+- Fuzzy match returns different product sometimes, so the review might cite for some other product rather than what user asked.
+- Currently the reviews/support tickets might throw a bad light on the brand which should ideally be filtered out
+- Default intent is 'search' which returns products, so if the intent is other than "review_explanation", "brand_info", "recommend", by default it will update products. Meaning you cannot have a normal conversation.
 ## TODOs & Future Improvements
 - Complete the Voice capabilities, STT and TTS functionality
 - Create Database for catalog and feedback instead of xlsx
