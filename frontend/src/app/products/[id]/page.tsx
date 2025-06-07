@@ -11,9 +11,12 @@ const getProductById = async (id: string): Promise<Product | null> => {
   try {
     const params = new URLSearchParams();
     params.append('ids', id);
-    const response = await fetch(`/api/products?${params.toString()}`);
-    
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://your-production-domain.com' 
+      : 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/products?${params.toString()}`);
     if (!response.ok) {
+      console.error('Error fetching product:', response);
       return null;
     }
     
@@ -30,6 +33,8 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   const product = await getProductById(params.id);
 
   if (!product) {
+    console.log('Product not found');
+    console.log('Product ID:', params.id);
     notFound();
   }
 
@@ -37,7 +42,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
     <div className="container mx-auto py-12 px-4">
       <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex">
         {/* Product Image Section */}
-        <div className="md:w-1/2 relative min-h-[300px] md:min-h-full">
+        <div className="md:w-1/2 relative">
           {product.imageUrl && (
             <Image
               src={product.imageUrl}
@@ -68,7 +73,7 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               <Leaf size={20} className="mr-2 text-green-500" /> Top Ingredients
             </h3>
             <ul className="list-disc list-inside text-gray-600 space-y-1">
-              {product.top_ingredients.map((ingredient, index) => (
+              {product.top_ingredients.split('; ').map((ingredient, index) => (
                 <li key={index}>{ingredient}</li>
               ))}
             </ul>
@@ -79,8 +84,8 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               <Star size={20} className="mr-2 text-yellow-500" /> Tags
             </h3>
             <div className="flex flex-wrap gap-2">
-              {product.tags.map((tag, index) => (
-                <span key={index} className="bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-sm">
+              {product.tags.split('|').map((tag, index) => (
+                <span key={index} className="bg-pink-100 text-pink-700 px-[10px] py-[5px] rounded-full text-sm">
                   {tag}
                 </span>
               ))}

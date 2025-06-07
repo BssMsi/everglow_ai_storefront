@@ -18,6 +18,7 @@ logging.basicConfig(
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.responses import HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware  # Add this import
 import asyncio
 from typing import Any, Dict, List, Tuple, Optional # Added Tuple
 from pydantic import BaseModel
@@ -30,12 +31,29 @@ from services.data_utils import load_products_catalog, set_product_catalog_data,
 
 app = FastAPI()
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow requests from Next.js frontend
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
+
 # Pydantic model for the chat request
 class ChatRequest(BaseModel):
     text: str
     # Frontend sends messages as a list of dicts: [{'id': '...', 'content': '...', 'sender': 'user'|'agent', ...}]
     # It should also send the full last agent state for proper context continuation.
     state_dict: Optional[Dict[str, Any]] = None # Changed from List[Dict[str, Any]] to Dict[str, Any]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins (development only)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 logger = logging.getLogger(__name__)
 

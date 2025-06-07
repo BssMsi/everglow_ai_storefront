@@ -4,8 +4,8 @@ export interface Product {
   name: string;
   category: string;
   description: string;
-  top_ingredients: string[];
-  tags: string[];
+  top_ingredients: string;
+  tags: string;
   priceusd: number;
   margin: number; // For sorting
   imageUrl?: string; // Optional image
