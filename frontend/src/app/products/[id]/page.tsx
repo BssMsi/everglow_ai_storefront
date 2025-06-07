@@ -14,7 +14,7 @@ const getProductById = async (id: string): Promise<Product | null> => {
     const params = new URLSearchParams();
     params.append('ids', id);
     const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://beingawarematters.com:8000' 
+      ? ''
       : 'http://localhost:8000';
     const response = await fetch(`${baseUrl}/api/products?${params.toString()}`);
     if (!response.ok) {
@@ -40,8 +40,8 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   // Get product images from the specified paths
   const getProductImages = (productId: string): string[] => {
     return [
-      `/products/${productId}/1.png`,
-      `/products/${productId}/2.png`
+      `/everglow/products/${productId}/1.png`,
+      `/everglow/products/${productId}/2.png`
     ];
   };
 
@@ -102,6 +102,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           <div className="relative w-full h-full bg-gradient-to-br  min-h-[300px] from-gray-100 to-gray-200 overflow-hidden">
             <Image
               src={productImages[currentImageIndex]}
+              unoptimized
               alt={`${product.name} - Image ${currentImageIndex + 1}`}
               fill
               style={{ objectFit: 'cover' }}
