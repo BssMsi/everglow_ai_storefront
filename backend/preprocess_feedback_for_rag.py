@@ -3,19 +3,20 @@ import re
 import pandas as pd
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.docstore.document import Document
-from rapidfuzz import process, fuzz
 import logging
 
 # Pinecone imports
 from pinecone import Pinecone, ServerlessSpec
 from langchain_cohere import CohereEmbeddings
 
+# Import the moved function
+from services.data_utils import extract_product_from_text, load_catalog_product_id_name
+
 from dotenv import load_dotenv
 
 load_dotenv()
 # --- Config ---
 FEEDBACK_PATH = os.path.join(os.path.dirname(__file__), "CustomerFeedback.xlsx")
-CATALOG_PATH = os.path.join(os.path.dirname(__file__), "skincare catalog.xlsx")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "everglow-feedback") # Using a different index name for feedback
 PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
@@ -27,26 +28,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Step 1: Load Catalog for Product Linking ---
-def load_catalog_products(path):
-    """
-    Loads the skincare catalog Excel file and returns a set of product names (lowercase) for linking.
-    """
-    try:
-        df = pd.read_excel(path)
-        # Use lowercase for matching
-        # product_names = set(str(p).strip().lower() for p in df["name"].dropna().unique())
-        # TODO: Check duplicate product ids
-        logger.info(f"Loaded {len(df)} product_ids names from catalog.")
-        return df.set_index('product_id')['name'].to_dict()
-    except FileNotFoundError:
-        logger.error(f"Catalog file not found at {path}")
-        raise
-    except KeyError:
-        logger.error(f"Catalog file is missing 'name' column at {path}")
-        raise
-    except Exception as e:
-        logger.exception(f"Error loading catalog products from {path}: {e}")
-        raise
+# load_catalog_product_id_name
 
 # --- Utility: Normalize star ratings ---
 def normalize_rating(rating):
@@ -84,7 +66,7 @@ def preprocess_reviews(df_reviews, catalog_products):
             review = str(row.get("Review", "")).strip()
             rating = normalize_rating(row.get("Rating", ""))
             # Link to catalog
-            product_id = extract_product_from_text(product_name, catalog_products) or ""
+            product_id = extract_product_from_text(product_name) or ""
             # Build document text
             text = f"Review for Product ID: {product_id}\nName: {product_name}: {review}\nRating: {rating}\nReviewer: {reviewer}"
             metadata = {
@@ -94,6 +76,9 @@ def preprocess_reviews(df_reviews, catalog_products):
                 "product_id": product_id,
                 "rating": rating,
                 "product_in_catalog": bool(product_id),
+                "original_review": review,  # Store original review text for citations
+                "product_name": product_name,  # Store product name for context
+                "text": text,
             }
             docs.append(Document(page_content=text, metadata=metadata))
         except Exception as e:
@@ -102,43 +87,6 @@ def preprocess_reviews(df_reviews, catalog_products):
 
     logger.info(f"Processed {len(docs)} review documents.")
     return docs
-
-# --- Utility: Fuzzy match product in text ---
-def extract_product_from_text(text, catalog_products: dict, threshold=80):
-    """
-    Uses fuzzy matching to find a product name from the catalog within a given text
-    and returns the corresponding product ID.
-
-    Args:
-        text (str): The input text to search within.
-        catalog_products (dict): A dictionary where keys are product IDs and values are product names.
-                                 Example: {'prod_1': 'HydraCloud Daily Gel-Cream SPF 30'}
-        threshold (int): The minimum fuzzy matching score (0-100) to consider a match.
-
-    Returns:
-        str: The ID of the matched product, or None if no match is found above the threshold.
-    """
-    if not text or not catalog_products:
-        return None
-    # Create a list of product names (choices) for fuzzy matching
-    # and a mapping from lowercased name back to original ID
-    product_names_lower_to_id = {}
-    choices_for_fuzzy_match = []
-
-    for product_id, product_name in catalog_products.items():
-        # cleaned_product_name = re.sub(r'[^\w\s]', '', product_name).lower()
-        product_names_lower_to_id[product_name.lower()] = product_id
-        choices_for_fuzzy_match.append(product_name.lower())
-    try:
-        match, score, _ = process.extractOne(text.lower(), choices_for_fuzzy_match, scorer=fuzz.partial_token_set_ratio)
-        if score >= threshold:
-            logger.debug(f"Fuzzy matched product '{match}' with score {score} from text: {text[:50]}...")
-            return product_names_lower_to_id.get(match)
-        logger.debug(f"No fuzzy match found for text: {text[:50]}...")
-        return None
-    except Exception as e:
-         logger.error(f"Error during fuzzy product extraction from text: {text[:50]}... Error: {e}")
-         return None
 
 # --- Step 3: Preprocess Customer Support Tickets Sheet ---
 def preprocess_support_tickets(df_tickets, catalog_products):
@@ -152,7 +100,7 @@ def preprocess_support_tickets(df_tickets, catalog_products):
             customer_msg = str(row.get("Customer Message", "")).strip()
             support_resp = str(row.get("Support Response", "")).strip()
             # Try to extract product from customer message or support response
-            product_id = extract_product_from_text(customer_msg, catalog_products) or extract_product_from_text(support_resp, catalog_products) or ""
+            product_id = extract_product_from_text(customer_msg) or extract_product_from_text(support_resp) or ""
             in_catalog = bool(product_id) # True if a product was extracted
             text = f"Product ID:{product_id}\nCustomer Support Ticket {ticket_id}:\nQ: {customer_msg}\nA: {support_resp}"
             metadata = {
@@ -160,6 +108,9 @@ def preprocess_support_tickets(df_tickets, catalog_products):
                 "source_id": ticket_id,
                 "product_id": product_id,
                 "product_in_catalog": in_catalog,
+                "customer_message": customer_msg,  # Store original customer message
+                "support_response": support_resp,  # Store original support response
+                "text": text,
             }
             docs.append(Document(page_content=text, metadata=metadata))
         except Exception as e:
@@ -265,7 +216,7 @@ def build_and_upsert_pinecone_feedback(docs):
 if __name__ == "__main__":
     try:
         logger.info("Starting customer feedback preprocessing for RAG.")
-        catalog_products = load_catalog_products(CATALOG_PATH)
+        catalog_products = load_catalog_product_id_name()
         xls = pd.ExcelFile(FEEDBACK_PATH)
         df_reviews = pd.read_excel(xls, sheet_name="Reviews").dropna()
         df_tickets = pd.read_excel(xls, sheet_name="Customer Support Tickets").dropna()
@@ -280,4 +231,4 @@ if __name__ == "__main__":
         logger.exception(f"An unexpected error occurred during feedback preprocessing: {e}")
 
 # TODO: Add error handling, logging, and support for incremental updates.
-# TODO: Document the expected Excel columns and add validation. 
+# TODO: Document the expected Excel columns and add validation.

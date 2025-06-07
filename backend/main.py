@@ -26,15 +26,9 @@ from pydantic import BaseModel
 from services.speech_to_text import speech_to_text
 from services.english_agent import english_agent, AgentState # Import AgentState for type hinting if needed
 from services.text_to_speech import text_to_speech
+from services.data_utils import load_products_catalog, set_product_catalog_data
 
 app = FastAPI()
-
-# Define the path to the skincare catalog file
-CATALOG_PATH = os.path.join(os.path.dirname(__file__), "skincare catalog.xlsx")
-
-# Placeholder for in-memory product data loaded from "skincare catalog.xlsx"
-# This will be populated on application startup.
-PRODUCT_CATALOG_DATA: Any = None # Change type hint to Any, as it will be a DataFrame
 
 # Pydantic model for the chat request
 class ChatRequest(BaseModel):
@@ -63,7 +57,6 @@ async def http_chat_agent(request: ChatRequest):
         }
 
         if request.state_dict:
-            logger.info(f"Received state_dict from frontend: {request.state_dict}")
             # Reconstruct history from the 'history' key if it's in the AgentState format
             # (list of [user_msg, agent_msg] tuples)
             history_from_state = request.state_dict.get("history")
@@ -142,18 +135,13 @@ async def get_products_by_ids(ids: List[str] = Query()):
     Looks up IDs in the in-memory product catalog data (pandas DataFrame).
     """
     logger.info("Received /api/products request with IDs: %s", ids)
-    
-    # Ensure PRODUCT_CATALOG_DATA is a DataFrame before attempting to filter
-    if PRODUCT_CATALOG_DATA is None or not isinstance(PRODUCT_CATALOG_DATA, pd.DataFrame) or PRODUCT_CATALOG_DATA.empty:
-        logger.warning("Product catalog data is not loaded or is empty.")
-        return [] # Return empty list if data is not available
-
+    df = get_product_catalog_data()
     try:
         # Use pandas filtering to find products with matching IDs
         # Assumes 'product_id' is the column name for IDs
         # Use .isin() for efficient checking against a list of IDs
-        found_products_df = PRODUCT_CATALOG_DATA[PRODUCT_CATALOG_DATA['product_id'].isin(ids)]
-        
+        found_products_df = df.loc[ids]
+
         # Convert the filtered DataFrame back to a list of dictionaries for the response
         found_products = found_products_df.to_dict('records')
         
@@ -169,23 +157,8 @@ async def get_products_by_ids(ids: List[str] = Query()):
 # Startup event to load the product catalog
 @app.on_event("startup")
 async def load_product_catalog():
-    logger.info(f"Attempting to load product catalog from {CATALOG_PATH}")
-    global PRODUCT_CATALOG_DATA
-    try:
-        df = pd.read_excel(CATALOG_PATH)
-        
-        # Clean column names: keep only alphabets and underscores, trim whitespace
-        df.columns = [re.sub(r'[^a-zA-Z_]', '', col).strip().lower() for col in df.columns]
-
-        # Store the DataFrame with cleaned column names
-        PRODUCT_CATALOG_DATA = df
-        logger.info(f"Successfully loaded {len(df)} products into DataFrame from catalog.")
-        logger.info(f"Cleaned column names: {list(df.columns)}")
-    except FileNotFoundError:
-        logger.error(f"Product catalog file not found at {CATALOG_PATH}. The /api/products endpoint will return empty results.")
-        PRODUCT_CATALOG_DATA = pd.DataFrame() # Assign an empty DataFrame if file is missing
-    except Exception as e:
-        logger.exception(f"Error loading product catalog from {CATALOG_PATH}: {e}")
-        PRODUCT_CATALOG_DATA = pd.DataFrame() # Assign an empty DataFrame if loading fails
+    catalog_data = load_products_catalog()
+    set_product_catalog_data(catalog_data)
+    logger.info(f"Loaded {len(catalog_data)} products from catalog.")
 
 # TODO: Add authentication, streaming audio support, and production-level error handling as needed.

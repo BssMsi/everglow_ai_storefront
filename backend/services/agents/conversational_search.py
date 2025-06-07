@@ -65,7 +65,7 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
         return {"error": error_msg}, state # Return error structure
 
     # If NER was successful and 'entities' (local copy) was updated:
-    state.entities = entities # Ensure the state object reflects these updated entities.
+    state.entities.update(entities) # Ensure the state object reflects these updated entities.
 
     # 2. Decide if follow-up questions are needed
     followup_questions = []
@@ -93,7 +93,7 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
         response = followup_questions[0] if followup_questions else "Can you tell me more about what you're looking for?"
         state.active_agent = "conversational_search"
         state.followup_questions = followup_questions
-        state.entities = entities  # Update state with extracted entities
+        state.entities.update(entities)  # Update state with extracted entities
         # state.history.append(("user", user_input))  # Avoid double logging user input
         state.history.append(("agent", response))
         logger.info(f"Conversational Search Agent: Continuing conversational search. Responding: {response}")

@@ -9,10 +9,10 @@ from pinecone import Pinecone, ServerlessSpec
 from langchain_cohere import CohereEmbeddings
 
 from dotenv import load_dotenv
+from services.data_utils import load_products_catalog  # Import the load_catalog function from data_util
 
 load_dotenv()
 # --- Config ---
-CATALOG_PATH = os.path.join(os.path.dirname(__file__), "skincare catalog.xlsx")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "everglow-catalog")
 PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")  # e.g., "us-east-1"
@@ -24,20 +24,7 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Step 1: Load and Clean Excel File ---
-def load_catalog(path):
-    """
-    Loads the skincare catalog Excel file and returns a cleaned DataFrame.
-    Validates required columns.
-    """
-    required_columns = [
-        "product_id", "name", "category", "description", "top_ingredients", "tags", "price (USD)", "margin (%)"
-    ]
-    df = pd.read_excel(path)
-    missing = [col for col in required_columns if col not in df.columns]
-    if missing:
-        raise ValueError(f"Missing required columns in catalog: {missing}")
-    # TODO: Add more cleaning/normalization as needed
-    return df
+
 
 # --- Step 2: Format Each Product as a RAG Document ---
 def make_documents(df):
@@ -137,7 +124,7 @@ def build_and_upsert_pinecone(docs):
     logger.info("Upsert complete.")
 
 if __name__ == "__main__":
-    df = load_catalog(CATALOG_PATH)
+    df = load_products_catalog()
     docs = make_documents(df)
     build_and_upsert_pinecone(docs)
     logger.info("Catalog preprocessing and upsert to Pinecone complete.")

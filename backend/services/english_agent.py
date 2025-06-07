@@ -19,7 +19,7 @@ def english_agent(text: str, state_dict: Optional[Dict[str, Any]] = None) -> Dic
     Returns:
         Dict with 'ai_message' and 'state' (for next turn) and optional list of 'product_ids'
     """
-    logger.info(f"--- English Agent: Starting processing for input: '{text}' ---")
+    logger.info(f"--- English Agent: Starting processing ---")
     state = AgentState.from_dict(state_dict or {})
     # Append current user input to history at the beginning of processing
     state.history.append(("user", text))
