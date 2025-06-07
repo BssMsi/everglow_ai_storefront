@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  basePath: '/everglow',
+  assetPrefix: '/everglow/',
+  output: 'standalone',
   images: {
     remotePatterns: [
       {
@@ -21,14 +24,14 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*', // Proxy to Backend
-      },
-    ]
-  },
+  // async rewrites() {
+  //   return [
+  //     {
+  //       source: '/api/:path*',
+  //       destination: 'http://localhost:8000/api/:path*', // Proxy to Backend
+  //     },
+  //   ]
+  // },
 };
 
 export default nextConfig;
