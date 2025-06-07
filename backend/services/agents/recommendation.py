@@ -74,7 +74,7 @@ def recommendation_agent(state: AgentState, user_input: str, entities: Dict[str,
         logger.info("Recommendation Agent: No products found matching the criteria.")
         response = "Sorry, I couldn't find any products matching your criteria."  # Agent response
         state.history.append(("agent", response))
-        return {"response": response, "products": []}, state # Return success with empty products and message
+        return {"response": response}, state # Return success with empty products and message
 
     for match in results:
         meta = match.metadata
@@ -87,7 +87,6 @@ def recommendation_agent(state: AgentState, user_input: str, entities: Dict[str,
             "tags": meta.get("tags"),  # Should be a list from Pinecone metadata
             "price": meta.get("price (USD)"),
         })
-        
         product_ids.append(meta["product_id"])
         logger.debug(f"Recommendation Agent: Formatted product: {meta.get('name')}")
 
@@ -103,11 +102,12 @@ def recommendation_agent(state: AgentState, user_input: str, entities: Dict[str,
     )
     try:
         # Pass product names or a summary to the LLM for justification
-        product_summary = ", ".join([p.get("name", "Unknown Product") for p in products])
-        logger.debug(f"Recommendation Agent: Justification prompt input: {justification_prompt.format(query=user_input, products=product_summary)}")
-        justification = recommendation_llm.invoke({
-            "input": justification_prompt.format(query=user_input, products=product_summary)
+        products_text = "---\n".join([f"{i+1}. Name: {p['name']}\nTop Ingredients: {p['top_ingredients']}\nTags: {p['tags']}" for i, p in enumerate(products)])
+        logger.debug(f"Recommendation Agent: Justification prompt input: {justification_prompt.format(query=user_input, products=products_text)}")
+        justification_response = recommendation_llm.invoke({
+            "input": justification_prompt.format(query=user_input, products=products_text)
         })
+        justification = justification_response.content
         logger.debug(f"Recommendation Agent: LLM Response {justification}")
     except Exception as e:
         logger.exception(f"Error generating recommendation justification: {e}")
@@ -122,4 +122,4 @@ def recommendation_agent(state: AgentState, user_input: str, entities: Dict[str,
 
     logger.info("Recommendation Agent: Finished.")
     # Return products and justification for the main agent to format the final response
-    return {"product_ids": product_ids, "justification": justification.content}, state
+    return {"product_ids": product_ids, "justification": justification}, state

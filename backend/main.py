@@ -26,7 +26,7 @@ from pydantic import BaseModel
 from services.speech_to_text import speech_to_text
 from services.english_agent import english_agent, AgentState # Import AgentState for type hinting if needed
 from services.text_to_speech import text_to_speech
-from services.data_utils import load_products_catalog, set_product_catalog_data
+from services.data_utils import load_products_catalog, set_product_catalog_data, get_product_catalog_data
 
 app = FastAPI()
 
@@ -140,7 +140,7 @@ async def get_products_by_ids(ids: List[str] = Query()):
         # Use pandas filtering to find products with matching IDs
         # Assumes 'product_id' is the column name for IDs
         # Use .isin() for efficient checking against a list of IDs
-        found_products_df = df.loc[ids]
+        found_products_df = df.loc[ids].reset_index()
 
         # Convert the filtered DataFrame back to a list of dictionaries for the response
         found_products = found_products_df.to_dict('records')
