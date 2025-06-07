@@ -14,8 +14,8 @@ const getProductById = async (id: string): Promise<Product | null> => {
     const params = new URLSearchParams();
     params.append('ids', id);
     const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://beingawarematters.com' 
-      : 'http://localhost:3000';
+      ? 'https://beingawarematters.com:8000' 
+      : 'http://localhost:8000';
     const response = await fetch(`${baseUrl}/api/products?${params.toString()}`);
     if (!response.ok) {
       console.error('Error fetching product:', response);
