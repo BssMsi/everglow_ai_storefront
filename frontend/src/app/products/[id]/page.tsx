@@ -1,10 +1,12 @@
+'use client';
 import { Product } from '@/types/product';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ShoppingCart, Tag, Star, Package, Leaf, CheckCircle } from 'lucide-react';
+import { ShoppingCart, Tag, Star, Package, Leaf, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, use } from 'react';
 
 type ProductDetailPageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
 const getProductById = async (id: string): Promise<Product | null> => {
@@ -12,7 +14,7 @@ const getProductById = async (id: string): Promise<Product | null> => {
     const params = new URLSearchParams();
     params.append('ids', id);
     const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://your-production-domain.com' 
+      ? 'https://beingawarematters.com' 
       : 'http://localhost:3000';
     const response = await fetch(`${baseUrl}/api/products?${params.toString()}`);
     if (!response.ok) {
@@ -29,34 +31,125 @@ const getProductById = async (id: string): Promise<Product | null> => {
   }
 };
 
-export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
-  const product = await getProductById(params.id);
+export default function ProductDetailPage({ params }: ProductDetailPageProps) {
+  const resolvedParams = use(params);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Get product images from the specified paths
+  const getProductImages = (productId: string): string[] => {
+    return [
+      `/products/${productId}/1.png`,
+      `/products/${productId}/2.png`
+    ];
+  };
+
+  const productImages = product ? getProductImages(product.product_id) : [];
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === productImages.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? productImages.length - 1 : prev - 1
+    );
+  };
+
+  const goToImage = (index: number) => {
+    setCurrentImageIndex(index);
+  };
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      const fetchedProduct = await getProductById(resolvedParams.id);
+      setProduct(fetchedProduct);
+      setLoading(false);
+    };
+
+    fetchProduct();
+  }, [resolvedParams.id]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-12 px-4">
+        <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex animate-pulse">
+          <div className="md:w-1/2 h-96 bg-gray-200"></div>
+          <div className="md:w-1/2 p-8">
+            <div className="h-4 bg-gray-200 rounded mb-4"></div>
+            <div className="h-8 bg-gray-200 rounded mb-4"></div>
+            <div className="h-20 bg-gray-200 rounded mb-6"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!product) {
     console.log('Product not found');
-    console.log('Product ID:', params.id);
+    console.log('Product ID:', resolvedParams.id);
     notFound();
   }
 
   return (
     <div className="container mx-auto py-12 px-4">
       <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex">
-        {/* Product Image Section */}
-        <div className="md:w-1/2 relative">
-          {product.imageUrl && (
+        {/* Product Image Carousel Section */}
+        <div className="md:w-1/2 relative h-96 md:h-auto group">
+          <div className="relative w-full h-full bg-gradient-to-br  min-h-[300px] from-gray-100 to-gray-200 overflow-hidden">
             <Image
-              src={product.imageUrl}
-              alt={product.name}
+              src={productImages[currentImageIndex]}
+              alt={`${product.name} - Image ${currentImageIndex + 1}`}
               fill
               style={{ objectFit: 'cover' }}
-              className="transition-transform duration-500 hover:scale-105"
+              className="transition-transform duration-500 hover:scale-[1.05] min-h-[300px]"
+              onError={(e) => {
+                // Fallback to product.imageUrl if carousel image fails
+                if (product.imageUrl) {
+                  (e.target as HTMLImageElement).src = product.imageUrl;
+                }
+              }}
             />
-          )}
-          {!product.imageUrl && (
-            <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-              <Package size={64} className="text-gray-400" />
-            </div>
-          )}
+            
+            {/* Carousel Controls */}
+            {productImages.length > 1 && (
+              <>
+                <button
+                  onClick={prevImage}
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-200 z-20 shadow-lg backdrop-blur-sm"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={nextImage}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-200 z-20 shadow-lg backdrop-blur-sm"
+                  aria-label="Next image"
+                >
+                  <ChevronRight size={18} />
+                </button>
+                
+                {/* Dot indicators */}
+                <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2 transition-opacity duration-200">
+                  {productImages.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => goToImage(index)}
+                      className={`w-2.5 h-2.5 rounded-full transition-all duration-200 shadow-sm ${
+                        index === currentImageIndex 
+                          ? 'bg-white scale-110' 
+                          : 'bg-white/60 hover:bg-white/80 hover:scale-105'
+                      }`}
+                      aria-label={`Go to image ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Product Details Section */}
