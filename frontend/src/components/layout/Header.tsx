@@ -11,9 +11,9 @@ const Header = () => {
       <nav className="flex items-center justify-between max-w-7xl mx-auto px-6 py-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group">
-          <Logo width={24} height={24} className="text-[var(--color-logo)]" />
+          <Logo width={40} height={40} className="text-[var(--color-logo)]" />
           <span className="text-lg font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors duration-200">
-            EcoSkin
+            EverGlow
           </span>
         </Link>
         

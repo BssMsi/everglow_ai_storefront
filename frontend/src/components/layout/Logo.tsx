@@ -16,81 +16,26 @@ const Logo: React.FC<LogoProps> = ({ width = 40, height = 40, className = '' }) 
       height={height} 
       viewBox="0 0 300 300" 
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      className={className} // Apply className to the SVG for additional styling if needed
     >
       {/* Outer circle */}
-      <circle 
-        cx="150" 
-        cy="150" 
-        r="120" 
-        fill="none" 
-        stroke="var(--color-logo)" 
-        strokeWidth="3"
-      />
+      <circle cx="150" cy="150" r="120" fill="none" stroke="var(--color-logo)" strokeWidth="3"></circle>
       
       {/* Single prominent leaf */}
-      <path 
-        d="M150 70 C190 110, 210 150, 150 210 C90 150, 110 110, 150 70" 
-        fill="var(--color-logo)"
-      />
+      <path d="M150 70 C190 110, 210 150, 150 210 C90 150, 110 110, 150 70" fill="var(--color-logo)"></path>
       
       {/* Leaf vein details */}
-      <path 
-        d="M150 75 C150 120, 150 165, 150 205" 
-        fill="none" 
-        stroke="var(--color-logo)" 
-        strokeWidth="1.5"
-      />
-      <path 
-        d="M150 120 C130 140, 170 140, 150 120" 
-        fill="none" 
-        stroke="var(--color-logo)" 
-        strokeWidth="1"
-      />
-      <path 
-        d="M150 150 C120 160, 180 160, 150 150" 
-        fill="none" 
-        stroke="var(--color-logo)" 
-        strokeWidth="1"
-      />
-      <path 
-        d="M150 180 C130 185, 170 185, 150 180" 
-        fill="none" 
-        stroke="var(--color-logo)" 
-        strokeWidth="1"
-      />
+      <path d="M150 75 C150 120, 150 165, 150 205" fill="none" stroke="var(--color-logo)" strokeWidth="1.5"></path>
+      <path d="M150 120 C130 140, 170 140, 150 120" fill="none" stroke="var(--color-logo)" strokeWidth="1"></path>
+      <path d="M150 150 C120 160, 180 160, 150 150" fill="none" stroke="var(--color-logo)" strokeWidth="1"></path>
+      <path d="M150 180 C130 185, 170 185, 150 180" fill="none" stroke="var(--color-logo)" strokeWidth="1"></path>
       
       {/* Glow effect */}
-      <circle 
-        cx="150" 
-        cy="150" 
-        r="90" 
-        fill="none" 
-        stroke="var(--color-logo)" 
-        strokeWidth="1" 
-        opacity="0.6"
-      />
-      
-      {/* Vegan symbol */}
-      <rect 
-        x="125" 
-        y="175" 
-        width="50" 
-        height="18" 
-        rx="9" 
-        fill="var(--color-background)"
-      />
-      <text 
-        x="150" 
-        y="188" 
-        fontFamily="Arial, sans-serif" 
-        fontSize="12" 
-        fontWeight="bold" 
-        textAnchor="middle" 
-        fill="var(--color-logo)"
-      >
-        VEGAN
-      </text>
+      <circle cx="150" cy="150" r="90" fill="none" stroke="var(--color-logo)" strokeWidth="1" opacity="0.6"></circle>
+
+      {/* Vegan symbol - background uses theme background, text uses logo color */}
+      <rect x="125" y="175" width="50" height="18" rx="9" fill="var(--color-background)"></rect> {/* Changed from white to theme background */}
+      <text x="150" y="188" fontFamily="Arial, sans-serif" fontSize="12" fontWeight="bold" textAnchor="middle" fill="var(--color-logo)">VEGAN</text>
     </svg>
   );
 };
