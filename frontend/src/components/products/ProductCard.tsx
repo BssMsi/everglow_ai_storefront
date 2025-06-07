@@ -18,7 +18,7 @@ const ProductCard = ({ product }: { product: Product }) => {
     const setIndex = productId.charCodeAt(productId.length - 1) % baseImageSets.length;
     const imageSet = baseImageSets[setIndex];
     
-    return imageSet.map(filename => `/products/${productId}/${filename}`);
+    return imageSet.map(filename => `/everglow/products/${productId}/${filename}`);
   };
 
   const productImages = getProductImages(product.product_id);
