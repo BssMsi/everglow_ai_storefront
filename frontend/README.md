@@ -26,7 +26,6 @@ frontend/
 - **Main Page**: Expandable search bar (with voice/AI agent placeholder), dynamic product list sorted by margin.
 - **About Page**: Brand philosophy and team (static content).
 - **Product Detail Page**: Shows all product attributes, dummy add-to-cart button.
-- **Customer Profile Page**: Edit profile and instantly adapt UI (color, font, etc.).
 
 ## Adaptive UI Implementation
 - **ThemeContext** (`src/context/ThemeContext.tsx`):
@@ -40,14 +39,10 @@ frontend/
 1. Install dependencies:
    ```bash
    npm install
-   # or
-   yarn install
    ```
 2. Run the development server:
    ```bash
    npm run dev
-   # or
-   yarn dev
    ```
 3. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
@@ -57,16 +52,7 @@ frontend/
 - **Add new UI components**: Place them in `src/components/` and use theme variables for styling.
 
 ## Next Steps / TODO
-- Integrate real AI agent for search and product recommendations.
-- Connect to backend for real customer and product data.
-- Add analytics to further personalize the UI.
-- **[In Progress]** Revolutionize UI: Modern, animated, adaptive components inspired by Aceternity UI.
-  - [x] Replace basic SearchBar with new animated, expandable ChatSearchBar (see `src/components/search/ChatSearchBar.tsx`).
-  - [x] Integrate Framer Motion for smooth UI animation.
-  - [x] Begin shadcn/ui component integration (card, input, textarea).
-  - [ ] Refactor other UI components (header, footer, product cards, etc.) for modern look and adaptive styling.
-  - [ ] Ensure all colors, fonts, and styles are driven by ThemeContext for full adaptivity.
-  - [ ] Add micro-interactions and polish for delightful UX.
+- Add customer interaction analytics to further personalize the UI.
+- Revolutionize UI: Modern, animated, adaptive components
 
 ---
-For questions or contributions, see the main project README or contact the EverGlow team.
