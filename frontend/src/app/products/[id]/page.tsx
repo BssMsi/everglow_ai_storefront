@@ -1,31 +1,36 @@
-// frontend/src/app/products/[id]/page.tsx
-import { dummyProducts } from '@/data/dummyProducts'; // Adjust path as necessary
-import { Product } from '@/types/product';         // Adjust path as necessary
+import { Product } from '@/types/product';
 import Image from 'next/image';
-import { notFound } from 'next/navigation'; // For handling product not found
-import { ShoppingCart, Tag, Star, Package, Leaf, CheckCircle } from 'lucide-react'; // Icons
-
-// This function can be used if you want to generate static paths at build time
-// For now, we'll rely on dynamic rendering.
-// export async function generateStaticParams() {
-//   return dummyProducts.map((product) => ({
-//     id: product.id,
-//   }));
-// }
+import { notFound } from 'next/navigation';
+import { ShoppingCart, Tag, Star, Package, Leaf, CheckCircle } from 'lucide-react';
 
 type ProductDetailPageProps = {
   params: { id: string };
 };
 
-const getProductById = (id: string): Product | undefined => {
-  return dummyProducts.find((product) => product.id === id);
+const getProductById = async (id: string): Promise<Product | null> => {
+  try {
+    const params = new URLSearchParams();
+    params.append('ids', id);
+    const response = await fetch(`/api/products?${params.toString()}`);
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const products: Product[] = await response.json();
+    // Return the first element as requested
+    return products.length > 0 ? products[0] : null;
+  } catch (error) {
+    console.error('Error fetching product:', error);
+    return null;
+  }
 };
 
-export default function ProductDetailPage({ params }: ProductDetailPageProps) {
-  const product = getProductById(params.id);
+export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
+  const product = await getProductById(params.id);
 
   if (!product) {
-    notFound(); // Triggers the not-found page or component
+    notFound();
   }
 
   return (
@@ -83,10 +88,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           </div>
 
           <div className="flex items-center justify-between mb-8">
-            <p className="text-3xl font-extrabold text-pink-600">${product.price.toFixed(2)}</p>
-            {/* Margin is usually not displayed to customers
-            <p className="text-sm text-gray-500">Margin: {product.margin}</p>
-            */}
+            <p className="text-3xl font-extrabold text-pink-600">${product.priceusd.toFixed(2)}</p>
           </div>
 
           <button className="w-full bg-pink-500 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-pink-600 transition duration-300 flex items-center justify-center text-lg">
@@ -94,7 +96,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
           </button>
 
           <div className="mt-6 text-sm text-gray-500">
-            <p className="flex items-center"><CheckCircle size={16} className="mr-2 text-green-500" /> Product ID: {product.id}</p>
+            <p className="flex items-center"><CheckCircle size={16} className="mr-2 text-green-500" /> Product ID: {product.product_id}</p>
           </div>
         </div>
       </div>

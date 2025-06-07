@@ -26,4 +26,3 @@ def brand_answer_agent(state: AgentState, user_input: str) -> (str, AgentState):
     logger.info("Brand Answer Agent: Finished.")
     # Ensure consistent return type (dict)
     return {"response": response.content}, state # Return success with response
-    pass

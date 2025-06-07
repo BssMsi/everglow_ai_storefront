@@ -10,16 +10,8 @@ const ProductCard = ({ product }: { product: Product }) => {
   const getProductImages = (productId: string): string[] => {
     const baseImageSets = [
       [
-        'Gemini_Generated_Image_q0dstcq0dstcq0ds.png',
-        'Gemini_Generated_Image_v9x766v9x766v9x7.png'
-      ],
-      [
-        'Gemini_Generated_Image_kkwy37kkwy37kkwy.png',
-        'Gemini_Generated_Image_wb6xamwb6xamwb6x.png'
-      ],
-      [
-        'Gemini_Generated_Image_hd1epuhd1epuhd1e.png',
-        'Gemini_Generated_Image_hd1epwhd1epwhd1e.png'
+        '1.png',
+        '2.png'
       ]
     ];
     

@@ -8,7 +8,7 @@ import ProfileIcon from './ProfileIcon';
 const Header = () => {
   return (
     <header className="w-full bg-[var(--color-background)] border-b border-[var(--color-secondary)]/20">
-      <nav className="flex items-center justify-between margin-[0_auto] padding-[1rem_1.5rem]">
+      <nav className="flex items-center justify-between p-[1rem]">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-[0.5rem] group no-underline">
           <Logo width={40} height={40} className="text-[var(--color-logo)]" />
@@ -24,12 +24,6 @@ const Header = () => {
             className="no-underline text-[var(--color-foreground)]/70 hover:text-[var(--color-primary)] font-medium transition-colors duration-200"
           >
             Shop
-          </Link>
-          <Link 
-            href="/learn" 
-            className="no-underline text-[var(--color-foreground)]/70 hover:text-[var(--color-primary)] font-medium transition-colors duration-200"
-          >
-            Learn
           </Link>
           <Link 
             href="/about" 

@@ -78,7 +78,7 @@ async def http_chat_agent(request: ChatRequest):
                         if sender == "user":
                             user_msg_content = content
                         elif sender == "agent" and user_msg_content is not None:
-                            paired_history.append((user_msg_content, content))
+                            paired_history.append((user_msg_content, content[:100] + "..." if len(content) >= 400 else content))
                             user_msg_content = None
                     current_state_data["history"] = paired_history
 

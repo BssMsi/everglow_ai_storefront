@@ -24,7 +24,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       {/* Apply font variables to html tag for Tailwind access if needed */}
-      <body className={`${inter.variable} ${roboto.variable} ${lato.variable} relative min-h-screen pt-20 pb-16`}>
+      <body className={`${inter.variable} ${roboto.variable} ${lato.variable} relative min-h-screen pt-20 pb-16 overflow-x-hidden`}>
         <ThemeProvider> {/* Wrap with ThemeProvider */}
           <Header />
           <main className="container mx-auto px-4 py-8">

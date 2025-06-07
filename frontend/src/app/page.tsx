@@ -19,7 +19,6 @@ export default function HomePage() {
       <div className="flex flex-col items-center w-full px-6 pt-8 pb-12">
         <div className="w-full max-w-2xl">
           <ChatSearchBar 
-            placeholder="What's the best vegan moisturizer for dry skin?" 
             onProductsFound={handleProductsFound}
           />
         </div>

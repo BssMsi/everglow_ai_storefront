@@ -34,7 +34,6 @@ interface AgentState {
 }
 
 interface ChatSearchBarProps {
-  placeholder?: string;
   onSearch?: (value: string) => void;
   onProductsFound?: (products: Product[]) => void;
 }
@@ -115,13 +114,13 @@ function TypingDots() {
 }
 
 export function ChatSearchBar({
-  placeholder = "Search or ask a question...",
   onSearch,
   onProductsFound,
 }: ChatSearchBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [placeholder, setPlaceholder] = useState("What can I help you with?");
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "initial-agent-message",
@@ -203,7 +202,7 @@ export function ChatSearchBar({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json(); // Expecting { ai_message: "...", state: { ... }, product_ids: [] }
+      const data:{ ai_message: string, state: any, product_ids?: string[], theme?: "default" | "dark" | "rose" | "teal" | "lavender" } = await response.json(); // Expecting { ai_message: "...", state: { ... }, product_ids: [] }
       
       const agentMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -214,7 +213,7 @@ export function ChatSearchBar({
       
       setMessages(prev => [...prev, agentMessage]);
       setAgentState(data.state); // <-- Store the new state from backend response
-
+      setPlaceholder(data.ai_message);
       if (data.product_ids && data.product_ids.length > 0){
         // Get request to the backend endpoint to retrieve product details based on the list of product_ids
         // Update the Product List on the UI
@@ -231,6 +230,7 @@ export function ChatSearchBar({
           if (onProductsFound) {
             onProductsFound(productsData);
             console.log("Products found and sent to ChatSearchBar.", productsData);
+            setIsExpanded(false);
           }
 
           // Theme change logic: Check if theme is returned, otherwise use random theme
@@ -378,14 +378,14 @@ export function ChatSearchBar({
               <motion.div
                 key="search-bar-condensed"
                 layoutId="search-bar"
-                className="flex items-center bg-[var(--color-secondary)] rounded-full px-6 py-4 shadow-lg w-full cursor-text group focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50 transition-all duration-300 ease-in-out border border-[var(--color-accent-dark)]/30"
+                className="flex items-center bg-[var(--color-secondary)] rounded-full p-[10px] shadow-lg w-full cursor-text group focus-within:ring-2 focus-within:ring-[var(--color-primary)] focus-within:ring-opacity-50 transition-all duration-300 ease-in-out border border-[var(--color-accent-dark)]/30"
                 onClick={() => setIsExpanded(true)}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
               >
-                <Search className="h-5 w-5 text-[var(--color-primary)] group-hover:text-[var(--color-primary)]/80 transition-colors" />
-                <span className="ml-4 text-[var(--color-foreground)]/70 group-hover:text-[var(--color-foreground)]/90 transition-colors truncate font-medium">
+                <Search className="h-[32px] w-[32px] text-[var(--color-primary)] group-hover:text-[var(--color-primary)]/80 transition-colors" />
+                <span className="ml-[10px] text-[var(--color-foreground)]/70 group-hover:text-[var(--color-foreground)]/90 transition-colors truncate font-medium">
                   {placeholder}
                 </span>
               </motion.div>
@@ -399,22 +399,22 @@ export function ChatSearchBar({
                 exit={{ opacity: 0, scale: 0.95 }}
               >
                 {/* Header of expanded view */}
-                <div className="flex items-center justify-between p-4 border-b border-[var(--color-accent-dark)]/30 bg-[var(--color-secondary)]">
+                <div className="flex items-center justify-between p-[10px] border-b border-[var(--color-accent-dark)]/30 bg-[var(--color-secondary)]">
                   <div className="flex items-center gap-3">
                     <Bot className="size-6 text-[var(--color-primary)]" />
                     <span className="text-lg font-semibold text-[var(--color-foreground)]">EverGlow Labs Assistant</span>
                   </div>
                   <button 
                     onClick={() => setIsExpanded(false)} 
-                    className="p-2 rounded-full hover:bg-[var(--color-accent-dark)]/30 transition-colors text-[var(--color-foreground)]/60 hover:text-[var(--color-foreground)]"
+                    className="rounded-full bg-[transparent] hover:bg-[var(--color-accent-dark)]/30 transition-colors text-[var(--color-foreground)]/60 hover:text-[var(--color-foreground)]"
                     aria-label="Close chat"
                   >
-                    <XIcon className="size-5" />
+                    <XIcon className="size-5 text-[var(--color-accent-dark)" />
                   </button>
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-grow p-4 space-y-4 overflow-y-auto h-96 bg-[var(--color-background)] scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-transparent">
+                <div className="flex-grow p-[10px] space-y-[10px] overflow-y-auto h-96 bg-[var(--color-background)] scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-transparent">
                   {messages.map((msg) => (
                     <motion.div
                       key={msg.id}
@@ -425,7 +425,7 @@ export function ChatSearchBar({
                       className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
                     >
                       <div 
-                        className={`max-w-[80%] p-4 rounded-xl text-sm shadow-md ${
+                        className={`max-w-[80%] p-[5px] rounded-[10px] text-sm shadow-md ${
                           msg.sender === "user" 
                             ? "bg-[var(--color-primary)] text-white rounded-br-md"
                             : "bg-[var(--color-secondary)] text-[var(--color-foreground)] rounded-bl-md border border-[var(--color-accent-dark)]/30"
@@ -461,11 +461,11 @@ export function ChatSearchBar({
                       }}
                       onKeyDown={handleKeyDown}
                       placeholder={placeholder}
-                      className="flex-1 bg-transparent text-[var(--color-foreground)] placeholder-[var(--color-foreground)]/50 resize-none overflow-y-auto focus:outline-none py-4 px-4 text-sm leading-relaxed pr-32"
+                      className="flex-1 bg-transparent text-[var(--color-foreground)] placeholder-[var(--color-foreground)]/50 resize-none overflow-y-auto focus:outline-none p-[10px] text-sm leading-relaxed pr-[32px]"
                       rows={1}
                       style={{ minHeight: `${textareaRef.current?.style.minHeight || 48}px` }}
                     />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                    <div className="absolute right-[2px] top-1/2 -translate-y-1/2 flex items-center gap-[3px]">
                       {inputValue && (
                         <button
                           type="button"
@@ -474,32 +474,32 @@ export function ChatSearchBar({
                             adjustHeight(true);
                             textareaRef.current?.focus();
                           }}
-                          className="p-2 text-[var(--color-foreground)]/50 hover:text-[var(--color-foreground)] transition-colors rounded-full hover:bg-[var(--color-accent-dark)]/20"
+                          className="p-[5px] bg-[var(--color-primary)] text-[var(--color-foreground)]/50 hover:text-[var(--color-foreground)] transition-colors rounded-full hover:bg-[var(--color-secondary)]/90"
                           aria-label="Clear input"
                         >
-                          <XIcon size={16} />
+                          <XIcon className="size-5 text-[var(--color-accent-dark)" />
                         </button>
                       )}
                       <button
                         type="button"
                         onClick={handleVoiceSearch}
-                        className={`p-2 rounded-full transition-all duration-200 ${
+                        className={`p-[5px] bg-[var(--color-primary)] rounded-full transition-all duration-200 ${
                           isListening 
                             ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg' 
-                            : 'bg-[var(--color-accent-dark)]/20 hover:bg-[var(--color-accent-dark)]/30 text-[var(--color-foreground)]/70 hover:text-[var(--color-foreground)]'
+                            : 'bg-[var(--color-accent-dark)]/20 hover:bg-[var(--color-secondary)]/90 text-[var(--color-foreground)]/50 hover:text-[var(--color-foreground)]'
                         }`}
                         aria-label={isListening ? "Stop voice search" : "Start voice search"}
                       >
-                        <Mic size={18} />
+                        <Mic className="size-5" />
                       </button>
                       <button
                         type="button"
                         onClick={handleSendMessage}
                         disabled={!inputValue.trim() || isTyping}
-                        className="p-2 bg-[var(--color-primary)] text-white rounded-full hover:bg-[var(--color-primary)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
+                        className="p-[5px] bg-[var(--color-primary)] text-[var(--color-foreground)]/50 rounded-full hover:bg-[var(--color-secondary)]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg"
                         aria-label="Send message"
                       >
-                        <SendIcon size={18} />
+                        <SendIcon className="size-5" />
                       </button>
                     </div>
                   </div>

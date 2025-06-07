@@ -87,7 +87,7 @@ and safety.
 The result: skincare, body care, and haircare that deliver visible results without
 compromising ethics, the environment, or your wallet.
 
-Answer questions about the brand's philosophy, sustainability, and practices in a positive, cheerful, optimistic and transparent manner."""
+Answer questions conscisely but accurately addressing the user concerns in a positive, cheerful, optimistic and transparent manner."""
 
 # Instantiate LLMChains for each agent
 conversational_search_system_prompt_kwargs = {
