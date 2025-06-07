@@ -46,16 +46,16 @@ const ProductCard = ({ product }: { product: Product }) => {
   };
 
   return (
-    <div className="group bg-[var(--color-secondary)]/30 rounded-2xl overflow-hidden hover:bg-[var(--color-secondary)]/40 transition-all duration-300 cursor-pointer">
-      <Link href={`/products/${product.product_id}`} className="block">
+    <div className="group bg-[var(--color-secondary)]/30 rounded-[16px] overflow-hidden hover:bg-[var(--color-secondary)]/40 transition-all duration-[300ms] cursor-pointer h-[400px] flex flex-col">
+      <Link href={`/products/${product.product_id}`} className="block h-full flex flex-col no-underline cursor-pointer">
         {/* Image Section - Top */}
-        <div className="relative w-full aspect-square bg-gradient-to-br from-[var(--color-background)] to-[var(--color-secondary)]/20 overflow-hidden">
+        <div className="relative w-full h-[280px] bg-gradient-to-br from-[var(--color-background)] to-[var(--color-secondary)]/20 overflow-hidden flex-shrink-0">
           <Image
             src={productImages[currentImageIndex]}
             alt={`${product.name} - Image ${currentImageIndex + 1}`}
             fill
             style={{ objectFit: 'cover' }}
-            className="transition-transform duration-500 group-hover:scale-105"
+            className="transition-transform duration-[500ms] group-hover:scale-[1.05]"
             onError={(e) => {
               if (product.imageUrl) {
                 (e.target as HTMLImageElement).src = product.imageUrl;
@@ -68,25 +68,25 @@ const ProductCard = ({ product }: { product: Product }) => {
             <>
               <button
                 onClick={prevImage}
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                className="absolute left-[12px] top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-[8px] opacity-0 group-hover:opacity-100 transition-all duration-[200ms] z-10 cursor-pointer"
                 aria-label="Previous image"
               >
                 <ChevronLeft size={16} />
               </button>
               <button
                 onClick={nextImage}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+                className="absolute right-[12px] top-1/2 transform -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-[8px] opacity-0 group-hover:opacity-100 transition-all duration-[200ms] z-10 cursor-pointer"
                 aria-label="Next image"
               >
                 <ChevronRight size={16} />
               </button>
               
-              <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="absolute bottom-[12px] left-1/2 transform -translate-x-1/2 flex space-x-[8px] opacity-0 group-hover:opacity-100 transition-opacity duration-[200ms]">
                 {productImages.map((_, index) => (
                   <button
                     key={index}
                     onClick={(e) => goToImage(index, e)}
-                    className={`w-2 h-2 rounded-full transition-colors duration-200 ${
+                    className={`w-[8px] h-[8px] rounded-full transition-colors duration-[200ms] cursor-pointer ${
                       index === currentImageIndex 
                         ? 'bg-white' 
                         : 'bg-white/40 hover:bg-white/70'
@@ -100,14 +100,16 @@ const ProductCard = ({ product }: { product: Product }) => {
         </div>
         
         {/* Details Section - Bottom */}
-        <div className="p-4 space-y-2">
-          <h3 className="font-medium text-[var(--color-foreground)] text-sm leading-tight line-clamp-2">
-            {product.name}
-          </h3>
-          <p className="text-[var(--color-foreground)]/60 text-xs capitalize">
-            {product.category}
-          </p>
-          <p className="text-[var(--color-foreground)] font-semibold text-sm">
+        <div className="p-[16px] space-y-[8px] flex-1 flex flex-col justify-between">
+          <div className="space-y-[8px]">
+            <h3 className="font-medium text-[var(--color-foreground)] hover:text-[var(--color-primary)] text-[14px] leading-tight line-clamp-2">
+              {product.name}
+            </h3>
+            <p className="text-[var(--color-foreground)]/60 text-[12px] capitalize">
+              {product.category}
+            </p>
+          </div>
+          <p className="text-[var(--color-foreground)] font-semibold text-[14px] mt-auto">
             ${product.priceusd?.toFixed(2)}
           </p>
         </div>

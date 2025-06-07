@@ -91,11 +91,11 @@ function useAutoResizeTextarea({
 
 function TypingDots() {
   return (
-    <div className="flex items-center ml-1">
+    <div className="flex items-center ml-[1px]">
       {[1, 2, 3].map((dot) => (
         <motion.div
           key={dot}
-          className="size-1.5 bg-foreground/90 rounded-full mx-0.5"
+          className="size-[10px] bg-[var(--color-foreground)]/90 rounded-full mx-[0.5px]"
           initial={{ opacity: 0.3 }}
           animate={{ 
             opacity: [0.3, 0.9, 0.3],
@@ -441,8 +441,8 @@ export function ChatSearchBar({
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                     >
-                       <div className="max-w-[80%] p-4 rounded-xl bg-[var(--color-secondary)] text-[var(--color-foreground)] rounded-bl-md border border-[var(--color-accent-dark)]/30 flex items-center shadow-md">
-                        <span className="mr-2 text-sm">EverGlow Labs is typing</span><TypingDots />
+                       <div className="max-w-[80%] p-[5px] rounded-xl bg-[var(--color-secondary)] text-[var(--color-foreground)] rounded-bl-md border border-[var(--color-accent-dark)]/30 flex items-center shadow-md">
+                        <span className="mr-[10px] text-sm">EverGlow Labs is typing</span><TypingDots />
                        </div>
                     </motion.div>
                   )}
@@ -482,8 +482,9 @@ export function ChatSearchBar({
                       )}
                       <button
                         type="button"
+                        disabled
                         onClick={handleVoiceSearch}
-                        className={`p-[5px] bg-[var(--color-primary)] rounded-full transition-all duration-200 ${
+                        className={`p-[5px] bg-[var(--color-primary)] rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
                           isListening 
                             ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg' 
                             : 'bg-[var(--color-accent-dark)]/20 hover:bg-[var(--color-secondary)]/90 text-[var(--color-foreground)]/50 hover:text-[var(--color-foreground)]'
