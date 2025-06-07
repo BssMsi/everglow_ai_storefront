@@ -23,6 +23,16 @@ interface Message {
   sender: "user" | "agent";
   timestamp: Date;
 }
+
+// Define a type for the AgentState object based on backend's AgentState.to_dict()
+interface AgentState {
+  history: Array<[string, string]>;
+  entities: Record<string, any>;
+  intent: string | null;
+  active_agent: string | null;
+  followup_questions: string[];
+}
+
 interface ChatSearchBarProps {
   placeholder?: string;
   onSearch?: (value: string) => void;
@@ -125,6 +135,7 @@ export function ChatSearchBar({
   const [isListening, setIsListening] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const [agentState, setAgentState] = useState<AgentState | null>(null); // <-- Add state for agentState
 
   // Add theme hook
   const { setThemeSettings } = useTheme();
@@ -184,26 +195,25 @@ export function ChatSearchBar({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: currentInput, state_dict: messages }), // Send current input and history
+        // Send current input and the *entire last agent state*
+        body: JSON.stringify({ text: currentInput, state_dict: agentState }), 
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json(); // Expecting { response: "agent's text", state: { ... } }
+      const data = await response.json(); // Expecting { ai_message: "...", state: { ... }, product_ids: [] }
       
       const agentMessage: Message = {
         id: (Date.now() + 1).toString(),
-        // Assuming backend returns { response: { response: "actual agent text" ... } ... }
-        // Or if english_agent directly returns { response: "text", state: {} }
-        // Adjust based on actual backend response structure for /api/chat
-        content: data.ai_message,
+        content: data.ai_message, // Ensure this matches your backend response structure
         sender: "agent",
         timestamp: new Date(),
       };
       
       setMessages(prev => [...prev, agentMessage]);
+      setAgentState(data.state); // <-- Store the new state from backend response
 
       if (data.product_ids && data.product_ids.length > 0){
         // Get request to the backend endpoint to retrieve product details based on the list of product_ids

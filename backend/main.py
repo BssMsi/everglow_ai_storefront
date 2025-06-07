@@ -40,7 +40,8 @@ PRODUCT_CATALOG_DATA: Any = None # Change type hint to Any, as it will be a Data
 class ChatRequest(BaseModel):
     text: str
     # Frontend sends messages as a list of dicts: [{'id': '...', 'content': '...', 'sender': 'user'|'agent', ...}]
-    state_dict: Optional[List[Dict[str, Any]]] = None 
+    # It should also send the full last agent state for proper context continuation.
+    state_dict: Optional[Dict[str, Any]] = None # Changed from List[Dict[str, Any]] to Dict[str, Any]
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,9 @@ async def http_chat_agent(request: ChatRequest):
     HTTP endpoint for text-based interaction with the English agent.
     """
     try:
+        logger.info(f"Received /api/chat request. Text: '{request.text}', State Dict from Frontend: {request.state_dict}") # <-- ADD THIS LINE
+
+        # Initialize current_state_data with defaults
         current_state_data = {
             "history": [],
             "entities": {},
@@ -59,42 +63,40 @@ async def http_chat_agent(request: ChatRequest):
         }
 
         if request.state_dict:
-            # Convert frontend message list to AgentState history format: List of (user, agent) tuples
-            # The frontend sends a flat list of messages. We need to pair them up.
-            # This assumes a user message is always followed by an agent message in the history for pairing.
-            # Or, if the last message is a user message, it means the agent hasn't responded to it yet in the history.
-            
-            paired_history: List[Tuple[str, str]] = []
-            user_msg_content = None
-            for i, msg_data in enumerate(request.state_dict):
-                sender = msg_data.get("sender")
-                content = msg_data.get("content")
+            logger.info(f"Received state_dict from frontend: {request.state_dict}")
+            # Reconstruct history from the 'history' key if it's in the AgentState format
+            # (list of [user_msg, agent_msg] tuples)
+            history_from_state = request.state_dict.get("history")
+            if isinstance(history_from_state, list):
+                current_state_data["history"] = history_from_state
+            else:
+                # Fallback or handle if history is in a different format (e.g., flat list of messages)
+                # This part adapts your previous logic for flat message lists if needed,
+                # but ideally, frontend sends history in the (user, agent) tuple format.
+                paired_history: List[Tuple[str, str]] = []
+                user_msg_content = None
+                # Assuming request.state_dict might still be the old flat list for history if not updated on frontend
+                # This is a transitional step. Ideally, frontend sends state_dict.history as list of tuples.
+                messages_list = request.state_dict.get("messages", request.state_dict) # Check for 'messages' key or use root
+                if isinstance(messages_list, list):
+                    for i, msg_data in enumerate(messages_list):
+                        sender = msg_data.get("sender")
+                        content = msg_data.get("content")
+                        if sender == "user":
+                            user_msg_content = content
+                        elif sender == "agent" and user_msg_content is not None:
+                            paired_history.append((user_msg_content, content))
+                            user_msg_content = None
+                    current_state_data["history"] = paired_history
 
-                if sender == "user":
-                    # If there was a pending user message, it means no agent response followed it.
-                    # This scenario might indicate an incomplete pair from previous turns, 
-                    # or the agent is about to process this new user message.
-                    # For constructing history for the *current* call, we only add complete pairs.
-                    # The current user's input (`request.text`) is handled separately by english_agent.
-                    user_msg_content = content 
-                elif sender == "agent" and user_msg_content is not None:
-                    paired_history.append((user_msg_content, content))
-                    user_msg_content = None # Reset after pairing
-                # We ignore agent messages that don't have a preceding user message for pairing in history.
-                # The very first message from agent is usually a greeting and not part of a (user,agent) pair.
-            
-            current_state_data["history"] = paired_history
-            
-            # You could also try to extract the latest entities, intent, etc., 
-            # if the frontend were to send the full last agent state. 
-            # For now, we only focus on reconstructing history.
-            # Example: if frontend sent full last_agent_state.to_dict():
-            # last_agent_response_obj = request.state_dict.get("last_agent_state") # if frontend sent this
-            # if last_agent_response_obj and isinstance(last_agent_response_obj, dict):
-            #     current_state_data["entities"] = last_agent_response_obj.get("entities", {})
-            #     current_state_data["intent"] = last_agent_response_obj.get("intent")
-            #     current_state_data["active_agent"] = last_agent_response_obj.get("active_agent")
-            #     current_state_data["followup_questions"] = last_agent_response_obj.get("followup_questions", [])
+            # Populate other state fields directly from the received state_dict
+            current_state_data["entities"] = request.state_dict.get("entities", {})
+            current_state_data["intent"] = request.state_dict.get("intent")
+            current_state_data["active_agent"] = request.state_dict.get("active_agent")
+            current_state_data["followup_questions"] = request.state_dict.get("followup_questions", [])
+            logger.info(f"Reconstructed current_state_data: {current_state_data}")
+        else:
+            logger.info("No state_dict received from frontend, starting with default state.")
 
         # Call the synchronous english_agent function
         # The english_agent function itself will call AgentState.from_dict(current_state_data)

@@ -156,25 +156,58 @@ def get_catalog_categories_and_skin_concerns_from_source():
 AVAILABLE_CATEGORIES, AVAILABLE_SKIN_CONCERNS, AVAILABLE_INGREDIENTS = get_catalog_categories_and_skin_concerns_from_source()
 
 # --- Agent-specific LLMs with system prompts ---
-def make_agent_llm(system_prompt):
+# Updated make_agent_llm function
+def make_agent_llm(system_prompt_template_str: str,
+                   human_prompt_template_str: str = "{input}",
+                   template_format_kwargs: Optional[Dict[str, Any]] = None):
+    formatted_system_prompt = system_prompt_template_str
+    if template_format_kwargs:
+        formatted_system_prompt = system_prompt_template_str.format(**template_format_kwargs)
+
     prompt = ChatPromptTemplate.from_messages([
-        SystemMessagePromptTemplate.from_template(system_prompt),
-        HumanMessagePromptTemplate.from_template("{input}")
+        SystemMessagePromptTemplate.from_template(formatted_system_prompt),
+        HumanMessagePromptTemplate.from_template(human_prompt_template_str)
     ])
     # Reuse the main LLM configuration
     return prompt | llm
 
 # System prompts for each agent
-CONVERSATIONAL_SEARCH_SYSTEM_PROMPT = """You are a skincare expert. You need to do perform NER to identify three entities - product_categories and product_ingredients and skin_concerns. Maintain a high confidence for extraction of each value.
-Given the user's query and chat history and the list of available product_categories and product_ingredients
+CONVERSATIONAL_SEARCH_SYSTEM_PROMPT_TEMPLATE = """You are a skincare expert. Your task is to perform Named Entity Recognition (NER) to identify and manage lists for 'product_categories', 'product_ingredients', and 'skin_concerns'.
+You will be given the user's latest query, the currently identified entities, and the chat history.
 
-Available categories: %s
-Available ingredients: %s
-Available skin concerns: %s
+Available categories: {available_categories}
+Available ingredients: {available_ingredients}
+Available skin concerns: {available_skin_concerns}
 
-Extract values only from the available list, do not hallucinate or make up your own values.
-Respond ONLY in JSON format: {{"categories": [<category>], "ingredients": [<ingredient>], "skin_concerns": [<skin_concern>]}}
-""" % (", ".join(AVAILABLE_CATEGORIES), ", ".join(AVAILABLE_INGREDIENTS), ", ".join(AVAILABLE_SKIN_CONCERNS))
+Instructions for updating entities:
+1.  **Analyze User Intent**: Based on the user's latest query, and considering the current entities and chat history, determine if they intend to:
+    *   **Add**: Append new items to the existing list for a given entity (e.g., "I'm also interested in serums").
+    *   **Remove**: Delete specific items from the existing list (e.g., "Actually, remove cleansers").
+    *   **Replace/Focus**: Set the list to only the items mentioned in the latest query, potentially discarding previous ones (e.g., "Show me only toners and moisturizers now").
+    *   **Clarify/Refine**: Update the list based on new information, which might involve additions or replacements.
+2.  **Extraction**: Extract all relevant 'product_categories', 'product_ingredients', and 'skin_concerns' from the user's latest query.
+3.  **Validation**: Ensure all extracted items for 'categories', 'ingredients', and 'skin_concerns' are present in the "Available" lists provided. Do not hallucinate or invent new items.
+4.  **Update Logic**:
+    *   For 'product_categories': Apply the inferred user intent (add, remove, replace) to the `current_entities.categories` list using the extracted categories from the latest query. The final list should reflect this update.
+    *   For 'product_ingredients' and 'skin_concerns': Typically, these are additive unless the user explicitly asks to remove or replace them. Accumulate them or update based on clear user intent. The final list should reflect this update.
+5.  **Output Format**: Respond ONLY in JSON format with the *final, updated lists* for all three entities:
+    `{{{{"categories": [<updated_list_of_categories>], "ingredients": [<updated_list_of_ingredients>], "skin_concerns": [<updated_list_of_skin_concerns>]}}}}`
+
+Example of intent processing (assuming current entities are passed to you):
+- User query: "I'm looking for cleansers." (Current entities: `{{{{"categories": [], ...}}}}`) -> Output: `{{{{"categories": ["cleansers"], ...}}}}`
+- User query: "Also add serums." (Current entities: `{{{{"categories": ["cleansers"], ...}}}}`) -> Output: `{{{{"categories": ["cleansers", "serums"], ...}}}}`
+- User query: "Actually, just show me moisturizers." (Current entities: `{{{{"categories": ["cleansers", "serums"], ...}}}}`) -> Output: `{{{{"categories": ["moisturizers"], ...}}}}`
+- User query: "Remove serums." (Current entities: `{{{{"categories": ["cleansers", "serums"], ...}}}}`) -> Output: `{{{{"categories": ["cleansers"], ...}}}}`
+
+Maintain high confidence for extraction.
+"""
+
+CONVERSATIONAL_SEARCH_HUMAN_PROMPT_TEMPLATE = """
+User's latest query: {user_input}
+Current identified entities: {current_entities_json}
+Chat history (for context):
+{chat_history_formatted}
+"""
 
 RECOMMENDATION_SYSTEM_PROMPT = (
     "You are an expert skincare product recommender. "
@@ -210,7 +243,17 @@ compromising ethics, the environment, or your wallet.
 Answer questions about the brand's philosophy, sustainability, and practices in a positive, cheerful, optimistic and transparent manner."""
 
 # Instantiate LLMChains for each agent
-conversational_search_llm = make_agent_llm(CONVERSATIONAL_SEARCH_SYSTEM_PROMPT)
+conversational_search_system_prompt_kwargs = {
+    "available_categories": ", ".join(AVAILABLE_CATEGORIES),
+    "available_ingredients": ", ".join(AVAILABLE_INGREDIENTS),
+    "available_skin_concerns": ", ".join(AVAILABLE_SKIN_CONCERNS)
+}
+
+conversational_search_llm = make_agent_llm(
+    CONVERSATIONAL_SEARCH_SYSTEM_PROMPT_TEMPLATE,
+    CONVERSATIONAL_SEARCH_HUMAN_PROMPT_TEMPLATE,
+    template_format_kwargs=conversational_search_system_prompt_kwargs
+)
 recommendation_llm = make_agent_llm(RECOMMENDATION_SYSTEM_PROMPT)
 reviews_llm = make_agent_llm(REVIEWS_SYSTEM_PROMPT)
 brand_llm = make_agent_llm(BRAND_SYSTEM_PROMPT)
@@ -223,11 +266,21 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
     """
     logger.info("Conversational Search Agent: Started.")
     entities = copy.deepcopy(state.entities) # Initialize entities at the start
+
+    # Format chat history and current entities for the prompt
+    formatted_history = "\n".join([f"User: {turn[0]}\nAgent: {turn[1]}" for turn in state.history])
+    current_entities_json = json.dumps(state.entities if isinstance(state.entities, dict) else state.entities.to_dict())
+    logger.info(f"Conversational Search Agent: Formatted history: {formatted_history}")
+    logger.info(f"Conversational Search Agent: Current entities JSON: {current_entities_json}")
     # 1. Use agent-specific LLM to extract entities (NER) and match category with confidence
     try:
-        ner_output = conversational_search_llm.invoke({
-            "input": user_input
-        })
+        ner_input_payload = {
+            "user_input": user_input,
+            "current_entities_json": current_entities_json,
+            "chat_history_formatted": formatted_history
+        }
+        logger.debug(f"Conversational Search Agent: NER input payload: {ner_input_payload}")
+        ner_output = conversational_search_llm.invoke(ner_input_payload)
         ner_output_content = ner_output.content.strip()
         # Attempt to parse the JSON output from the LLM
         try:
@@ -240,16 +293,17 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
 
             logger.debug(f"Conversational Search Agent: NER cleaned output: {cleaned_output}")
             updated_entities = json.loads(cleaned_output)
-            entities.update(json.loads(cleaned_output))  # Use cleaned_output
+            entities.update(updated_entities)  # Use cleaned_output, LLM provides the full new entity state
 
-            logger.info(f"Conversational Search Agent: NER extracted categories: {cleaned_output}")
+            logger.info(f"Conversational Search Agent: NER processed entities: {cleaned_output}")
         except Exception as e:
-            logger.error(f"An unexpected error occurred during LLM NER output parsing. Error: {e}. Output was: {ner_output}", exc_info=True)
+            logger.error(f"An unexpected error occurred during LLM NER output parsing. Error: {e}. Output was: {ner_output_content}", exc_info=True) # Log ner_output_content
+            # Return error immediately on other parsing failures
             confidence = 0
             # Return error immediately on other parsing failures
             error_msg = "Sorry, an unexpected error occurred while processing the product category."
             state.history.append(("agent", error_msg))
-            logger.error(f"Conversational Search Agent: Unexpected error during NER parsing. Returning error. cleaned_output={cleaned_output}")
+            logger.error(f"Conversational Search Agent: Unexpected error during NER parsing. Returning error. cleaned_output={cleaned_output if 'cleaned_output' in locals() else 'undefined'}")
             return {"error": error_msg}, state # Return error structure
 
     except Exception as e:
@@ -257,8 +311,11 @@ def conversational_search_agent(state: AgentState, user_input: str) -> (dict, Ag
         # Return error immediately on LLM invocation failure
         error_msg = "Sorry, I encountered an error while trying to understand your request."
         state.history.append(("agent", error_msg))
-        logger.error(f"Conversational Search Agent: LLM invocation error during NER. Returning error. ner_output={ner_output}")
+        logger.error(f"Conversational Search Agent: LLM invocation error during NER. Returning error. ner_output={ner_output if 'ner_output' in locals() else 'undefined'}")
         return {"error": error_msg}, state # Return error structure
+
+    # If NER was successful and 'entities' (local copy) was updated:
+    state.entities = entities # Ensure the state object reflects these updated entities.
 
     # CONFIDENCE_THRESHOLD = 0.7
 
@@ -697,7 +754,7 @@ def llm_intent_router(state: AgentState, user_input: str) -> (str, AgentState):
         # Prepare prompt input
         prompt_input = {
             "input": user_input,
-            "history": state.history[-4:] if len(state.history) > 4 else state.history # Include recent history
+            "history": state.history[-10:] if len(state.history) > 10 else state.history # Include recent history
         }
         logger.debug(f"Intent Router: Prompt input: {prompt_input}")
         router_output = llm.invoke(router_prompt.format(**prompt_input))
@@ -749,7 +806,7 @@ def llm_intent_router(state: AgentState, user_input: str) -> (str, AgentState):
     state.intent = intent
     # Remove merging extracted arguments into state.entities
     # state.entities.update(arguments)
-    logger.debug(f"Intent Router: Updated state intent: {state.intent}. State entities remain unchanged by router: {state.entities}")
+    logger.info(f"Intent Router: Updated state intent: {state.intent}. State entities remain unchanged by router: {state.entities}")
 
     # Route to the appropriate agent
     if intent == "recommend":
