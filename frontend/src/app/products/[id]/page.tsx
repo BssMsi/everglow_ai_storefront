@@ -77,11 +77,11 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     return (
       <div className="container mx-auto py-12 px-4">
         <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex animate-pulse">
-          <div className="md:w-1/2 h-96 bg-gray-200"></div>
+          <div className="md:w-1/2 h-[384px] bg-gray-200"></div>
           <div className="md:w-1/2 p-8">
-            <div className="h-4 bg-gray-200 rounded mb-4"></div>
-            <div className="h-8 bg-gray-200 rounded mb-4"></div>
-            <div className="h-20 bg-gray-200 rounded mb-6"></div>
+            <div className="h-[16px] bg-gray-200 rounded mb-4"></div>
+            <div className="h-[32px] bg-gray-200 rounded mb-4"></div>
+            <div className="h-[80px] bg-gray-200 rounded mb-6"></div>
           </div>
         </div>
       </div>
@@ -98,7 +98,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
     <div className="container mx-auto py-12 px-4">
       <div className="bg-white shadow-xl rounded-lg overflow-hidden md:flex">
         {/* Product Image Carousel Section */}
-        <div className="md:w-1/2 relative h-96 md:h-auto group">
+        <div className="md:w-1/2 relative h-[384px] md:h-auto group">
           <div className="relative w-full h-full bg-gradient-to-br  min-h-[300px] from-gray-100 to-gray-200 overflow-hidden">
             <Image
               src={productImages[currentImageIndex]}
@@ -119,21 +119,21 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
               <>
                 <button
                   onClick={prevImage}
-                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-200 z-20 shadow-lg backdrop-blur-sm"
+                  className="absolute left-[10px] top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-200 z-20 shadow-lg backdrop-blur-sm"
                   aria-label="Previous image"
                 >
                   <ChevronLeft size={18} />
                 </button>
                 <button
                   onClick={nextImage}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-200 z-20 shadow-lg backdrop-blur-sm"
+                  className="absolute right-[10px] top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-200 z-20 shadow-lg backdrop-blur-sm"
                   aria-label="Next image"
                 >
                   <ChevronRight size={18} />
                 </button>
                 
                 {/* Dot indicators */}
-                <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2 flex space-x-2 transition-opacity duration-200">
+                <div className="absolute bottom-[10px] left-1/2 transform -translate-x-1/2 flex space-x-2 transition-opacity duration-200">
                   {productImages.map((_, index) => (
                     <button
                       key={index}

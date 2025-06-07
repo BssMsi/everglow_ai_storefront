@@ -59,7 +59,7 @@ const SearchBar = () => {
           </div>
 
           {/* Conversation History */}
-          <div className="max-h-60 overflow-y-auto mb-4 p-3 bg-gray-50 rounded-md space-y-3">
+          <div className="max-h-[240px] overflow-y-auto mb-4 p-3 bg-gray-50 rounded-md space-y-3">
             {conversationHistory.map((entry, index) => (
               <div key={index}>
                 <p className="text-sm text-blue-600 font-medium">You: {entry.user}</p>

@@ -26,7 +26,7 @@ export default function AboutPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {/* Team Member 1 */}
           <div className="bg-white p-6 rounded-lg shadow-md text-center">
-            <div className="relative w-32 h-32 mx-auto rounded-full overflow-hidden mb-4 border-2 border-pink-300">
+            <div className="relative w-[128px] h-[128px] mx-auto rounded-full overflow-hidden mb-4 border-2 border-pink-300">
               <Image src="https://picsum.photos/seed/picsum/200/300" alt="Team Member Jane Doe" fill style={{ objectFit: 'cover' }} />
             </div>
             <h3 className="text-xl font-semibold text-gray-800">Jane Doe</h3>

@@ -457,7 +457,7 @@ export function ChatSearchBar({
                 </div>
 
                 {/* Messages Area */}
-                <div className="flex-grow p-[10px] space-y-[10px] overflow-y-auto h-96 bg-[var(--color-background)] scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-transparent">
+                <div className="flex-grow p-[10px] space-y-[10px] overflow-y-auto h-[384px] bg-[var(--color-background)] scrollbar-thin scrollbar-thumb-[var(--color-accent-dark)] scrollbar-track-transparent">
                   {messages.map((msg) => (
                     <motion.div
                       key={msg.id}

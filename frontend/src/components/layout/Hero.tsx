@@ -13,9 +13,9 @@ const Hero = () => (
       </Link>
     </div>
     {/* Decorative background shapes */}
-    <div className="absolute -top-20 -left-20 w-72 h-72 bg-[var(--color-primary)] opacity-20 rounded-full blur-3xl z-0"></div>
-    <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-[var(--color-secondary)] opacity-30 rounded-full blur-3xl z-0"></div>
+    <div className="absolute -top-20 -left-20 w-[288px] h-[288px] bg-[var(--color-primary)] opacity-20 rounded-full blur-3xl z-0"></div>
+    <div className="absolute -bottom-24 -right-24 w-[384px] h-[384px] bg-[var(--color-secondary)] opacity-30 rounded-full blur-3xl z-0"></div>
   </section>
 );
 
-export default Hero; 
+export default Hero;
