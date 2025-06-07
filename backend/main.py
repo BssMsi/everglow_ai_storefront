@@ -94,7 +94,6 @@ async def http_chat_agent(request: ChatRequest):
             current_state_data["intent"] = request.state_dict.get("intent")
             current_state_data["active_agent"] = request.state_dict.get("active_agent")
             current_state_data["followup_questions"] = request.state_dict.get("followup_questions", [])
-            logger.info(f"Reconstructed current_state_data: {current_state_data}")
         else:
             logger.info("No state_dict received from frontend, starting with default state.")
 
