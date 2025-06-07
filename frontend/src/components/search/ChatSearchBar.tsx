@@ -113,6 +113,49 @@ function TypingDots() {
   );
 }
 
+// Add this markdown-to-HTML converter function
+function convertMarkdownToHtml(markdown: string): string {
+  let html = markdown;
+  
+  // Convert headers
+  html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-semibold mb-2 mt-3">$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2 class="text-xl font-semibold mb-2 mt-4">$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold mb-3 mt-4">$1</h1>');
+  
+  // Convert bold text
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>');
+  html = html.replace(/__(.*?)__/g, '<strong class="font-semibold">$1</strong>');
+  
+  // Convert italic text
+  html = html.replace(/\*(.*?)\*/g, '<em class="italic">$1</em>');
+  html = html.replace(/_(.*?)_/g, '<em class="italic">$1</em>');
+  
+  // Convert inline code
+  html = html.replace(/`([^`]+)`/g, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono">$1</code>');
+  
+  // Convert code blocks
+  html = html.replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg overflow-x-auto my-2"><code class="text-sm font-mono">$1</code></pre>');
+  
+  // Convert unordered lists
+  html = html.replace(/^\* (.*$)/gim, '<li class="ml-4 list-disc">$1</li>');
+  html = html.replace(/^- (.*$)/gim, '<li class="ml-4 list-disc">$1</li>');
+  
+  // Wrap consecutive list items in ul tags
+  html = html.replace(/((<li[^>]*>.*<\/li>\s*)+)/g, '<ul class="my-2">$1</ul>');
+  
+  // Convert ordered lists
+  html = html.replace(/^\d+\. (.*$)/gim, '<li class="ml-4 list-decimal">$1</li>');
+  html = html.replace(/((<li class="ml-4 list-decimal"[^>]*>.*<\/li>\s*)+)/g, '<ol class="my-2">$1</ol>');
+  
+  // Convert links
+  html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" class="text-blue-500 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer">$1</a>');
+  
+  // Convert line breaks
+  html = html.replace(/\n/g, '<br>');
+  
+  return html;
+}
+
 export function ChatSearchBar({
   onSearch,
   onProductsFound,
@@ -431,7 +474,14 @@ export function ChatSearchBar({
                             : "bg-[var(--color-secondary)] text-[var(--color-foreground)] rounded-bl-md border border-[var(--color-accent-dark)]/30"
                         }`}
                       >
-                        {msg.content}
+                        {msg.sender === "agent" ? (
+                          <div 
+                            className="prose prose-sm max-w-none dark:prose-invert"
+                            dangerouslySetInnerHTML={{ __html: convertMarkdownToHtml(msg.content) }}
+                          />
+                        ) : (
+                          msg.content
+                        )}
                       </div>
                     </motion.div>
                   ))}
