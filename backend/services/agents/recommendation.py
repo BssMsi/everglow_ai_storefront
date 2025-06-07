@@ -53,7 +53,7 @@ def recommendation_agent(state: AgentState, user_input: str, entities: Dict[str,
     try:
         query_response = catalog_index.query(
             vector=query_vector,
-            top_k=5,  # Get top 5 results
+            top_k=10,  # Get top 5 results
             include_metadata=True,  # Include metadata to get product details
             filter=metadata_filter if metadata_filter else {}  # Apply filter if exists
         )
