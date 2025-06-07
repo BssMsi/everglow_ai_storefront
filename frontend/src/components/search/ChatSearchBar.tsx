@@ -96,7 +96,7 @@ function TypingDots() {
       {[1, 2, 3].map((dot) => (
         <motion.div
           key={dot}
-          className="w-1.5 h-1.5 bg-foreground/90 rounded-full mx-0.5"
+          className="size-1.5 bg-foreground/90 rounded-full mx-0.5"
           initial={{ opacity: 0.3 }}
           animate={{ 
             opacity: [0.3, 0.9, 0.3],
@@ -401,7 +401,7 @@ export function ChatSearchBar({
                 {/* Header of expanded view */}
                 <div className="flex items-center justify-between p-4 border-b border-[var(--color-accent-dark)]/30 bg-[var(--color-secondary)]">
                   <div className="flex items-center gap-3">
-                    <Bot className="h-6 w-6 text-[var(--color-primary)]" />
+                    <Bot className="size-6 text-[var(--color-primary)]" />
                     <span className="text-lg font-semibold text-[var(--color-foreground)]">EverGlow Labs Assistant</span>
                   </div>
                   <button 
@@ -409,7 +409,7 @@ export function ChatSearchBar({
                     className="p-2 rounded-full hover:bg-[var(--color-accent-dark)]/30 transition-colors text-[var(--color-foreground)]/60 hover:text-[var(--color-foreground)]"
                     aria-label="Close chat"
                   >
-                    <XIcon className="h-5 w-5" />
+                    <XIcon className="size-5" />
                   </button>
                 </div>
 
