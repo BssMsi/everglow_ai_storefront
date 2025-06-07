@@ -4,13 +4,9 @@ import * as React from "react";
 import { useEffect, useRef, useCallback, useState } from "react";
 import {
   Search,
-  ArrowLeft,
   SendIcon,
   XIcon,
-  LoaderIcon,
-  MessageSquare,
   Bot,
-  User,
   Mic } from "lucide-react";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { Product } from "@/types/product";
@@ -27,14 +23,14 @@ interface Message {
 // Define a type for the AgentState object based on backend's AgentState.to_dict()
 interface AgentState {
   history: Array<[string, string]>;
-  entities: Record<string, any>;
+  entities: Record<string, unknown>;
   intent: string | null;
   active_agent: string | null;
   followup_questions: string[];
 }
 
 interface ChatSearchBarProps {
-  onSearch?: (value: string) => void;
+  // onSearch?: (value: string) => void; // Removed as it's not used. TODO: Re-evaluate if this prop is needed for future features.
   onProductsFound?: (products: Product[]) => void;
 }
 
@@ -157,7 +153,7 @@ function convertMarkdownToHtml(markdown: string): string {
 }
 
 export function ChatSearchBar({
-  onSearch,
+  // onSearch,
   onProductsFound,
 }: ChatSearchBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -173,7 +169,6 @@ export function ChatSearchBar({
     },
   ]);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
-  const [isWsConnected, setIsWsConnected] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -245,17 +240,22 @@ export function ChatSearchBar({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data:{ ai_message: string, state: any, product_ids?: string[], theme?: "default" | "dark" | "rose" | "teal" | "lavender" } = await response.json(); // Expecting { ai_message: "...", state: { ... }, product_ids: [] }
+      const data:{ ai_message: string, state: unknown, product_ids?: string[], theme?: "default" | "dark" | "rose" | "teal" | "lavender" } = await response.json(); // Expecting { ai_message: "...", state: { ... }, product_ids: [] }
       
       const agentMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: data.ai_message, // Ensure this matches your backend response structure
+        id: Date.now().toString(),
+        content: data.ai_message,
         sender: "agent",
         timestamp: new Date(),
       };
       
       setMessages(prev => [...prev, agentMessage]);
-      setAgentState(data.state); // <-- Store the new state from backend response
+
+      // Update agent state
+      if (data.state) {
+        setAgentState(data.state as AgentState); // Cast to AgentState
+      }
+
       setPlaceholder(data.ai_message);
       if (data.product_ids && data.product_ids.length > 0){
         // Get request to the backend endpoint to retrieve product details based on the list of product_ids
@@ -326,7 +326,6 @@ export function ChatSearchBar({
       setWebsocket(ws);
 
       ws.onopen = () => {
-        setIsWsConnected(true);
         setIsListening(true);
         console.log("WebSocket connection established for voice.");
 
@@ -378,8 +377,6 @@ export function ChatSearchBar({
 
       ws.onerror = (error) => {
         console.error("WebSocket error:", error);
-        setIsWsConnected(false);
-        setIsListening(false);
         // Add error message to chat
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -392,8 +389,6 @@ export function ChatSearchBar({
 
       ws.onclose = () => {
         console.log("WebSocket connection closed.");
-        setIsWsConnected(false);
-        setIsListening(false);
         if (mediaRecorderRef.current && mediaRecorderRef.current.stream) {
             mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
         }
@@ -407,10 +402,6 @@ export function ChatSearchBar({
       handleSendMessage();
     }
   };
-
-  const latestAgentMessage = messages
-    .filter(msg => msg.sender === "agent")
-    .pop();
 
   return (
     <div className="flex flex-col items-center w-full mt-8 mb-4 px-4">

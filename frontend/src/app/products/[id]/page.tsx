@@ -2,7 +2,7 @@
 import { Product } from '@/types/product';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ShoppingCart, Tag, Star, Package, Leaf, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Tag, Star, Leaf, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useEffect, use } from 'react';
 
 type ProductDetailPageProps = {

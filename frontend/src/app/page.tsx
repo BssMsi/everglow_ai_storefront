@@ -2,7 +2,6 @@
 
 import { ChatSearchBar } from '@/components/search/ChatSearchBar';
 import ProductList from '@/components/products/ProductList';
-import { dummyProducts } from '@/data/dummyProducts';
 import { useState } from 'react';
 import { Product } from '@/types/product';
 

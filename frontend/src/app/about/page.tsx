@@ -44,7 +44,7 @@ export default function AboutPage() {
             <h3 className="text-xl font-semibold text-gray-800">John Smith</h3>
             <p className="text-pink-500">Head of Product Development</p>
             <p className="text-sm text-gray-500 mt-2">
-              John brings his expertise in botanical ingredients to create EverGlow's innovative formulas.
+              John brings his expertise in botanical ingredients to create EverGlow&apos;s innovative formulas.
             </p>
           </div>
 

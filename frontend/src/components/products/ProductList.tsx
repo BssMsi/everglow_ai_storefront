@@ -3,7 +3,6 @@
 
 import { Product } from '@/types/product'; // Import Product from types
 import ProductCard from './ProductCard';
-import { useEffect, useState } from 'react';
 
 type ProductListProps = {
   products: Product[]; // Use the imported Product type

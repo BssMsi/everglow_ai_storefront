@@ -15,7 +15,6 @@ frontend/
   │   ├── app/         # Next.js app directory (pages: main, about, profile, product detail)
   │   ├── components/  # Modular UI components (layout, products, search, etc.)
   │   ├── context/     # ThemeContext for adaptive UI
-  │   ├── data/        # Dummy product data
   │   └── types/       # TypeScript types for products, profile, theme
   ├── public/          # Static assets
   ├── package.json     # Project dependencies

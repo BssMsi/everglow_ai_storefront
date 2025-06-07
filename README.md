@@ -67,5 +67,4 @@ For the backend, environment variables might include:
 -   Develop the UI components for the frontend as per the issue requirements.
 -   Implement the adaptive UI features (dynamic theming).
 -   Define data models for products and customer profiles.
--   Integrate dummy data for frontend development.
 -   Begin development of the backend AI agent.
